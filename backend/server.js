@@ -346,6 +346,11 @@ function escapeXml(value) {
 	})[character]);
 }
 
+function getPublicBaseUrl(request) {
+	const baseUrl = process.env.PUBLIC_URL || `${request.protocol}://${request.get('host') || 'localhost'}`;
+	return baseUrl.replace(/\/$/, '');
+}
+
 app.get('/api/health', (request, response) => response.json({ ok: true }));
 
 app.get('/api/site', async (request, response, next) => {
@@ -367,7 +372,7 @@ app.get('/feed.xml', async (request, response, next) => {
 		const [posts, savedSite] = await Promise.all([loadPosts(), readJson(siteFile, {})]);
 		const site = { ...defaultSite, ...savedSite };
 		if (process.env.SITE_NAME?.trim()) site.blogName = process.env.SITE_NAME.trim();
-		const baseUrl = (process.env.PUBLIC_URL || 'http://localhost:5180').replace(/\/$/, '');
+		const baseUrl = getPublicBaseUrl(request);
 		const publicPosts = posts.filter(isPublicPost).sort((left, right) => right.date.localeCompare(left.date));
 		const items = publicPosts.map((post) => {
 			const description = String(post.content || '').replace(/```[\s\S]*?```/g, ' ').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_~`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 400);
@@ -383,7 +388,7 @@ app.get('/feed.xml', async (request, response, next) => {
 app.get('/sitemap.xml', async (request, response, next) => {
 	try {
 		const posts = await loadPosts();
-		const baseUrl = (process.env.PUBLIC_URL || 'http://localhost:5180').replace(/\/$/, '');
+		const baseUrl = getPublicBaseUrl(request);
 		const postUrls = posts.filter(isPublicPost).map((post) => {
 			const lastModified = new Date(post.updatedAt || post.publishedAt || post.date).toISOString();
 			return `<url><loc>${escapeXml(`${baseUrl}/?post=${encodeURIComponent(post.id)}`)}</loc><lastmod>${lastModified}</lastmod></url>`;

@@ -12,7 +12,7 @@ Copy `.env.example` to `.env`, then set `SIGNUP_CODE` to a unique random value o
 node -p "require('node:crypto').randomBytes(32).toString('hex')"
 ```
 
-Compose refuses to start without a value, and the production API refuses values shorter than 32 bytes. Keep `.env` private and never commit it. The first account registered against an empty database becomes the administrator, so bind the site to localhost or keep it behind a firewall until that account is created. Set `PUBLIC_URL` to the final HTTPS URL before enabling public traffic.
+Compose refuses to start without a value, and the production API refuses values shorter than 32 bytes. Keep `.env` private and never commit it. The first account registered against an empty database becomes the administrator, so bind the site to localhost or keep it behind a firewall until that account is created. Set `PUBLIC_URL` to the final HTTPS URL for canonical RSS/sitemap links; when unset, they use the forwarded request host and protocol.
 
 ## AI Providers
 
@@ -51,7 +51,7 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 5. Add these stack environment variables in Portainer:
 
 	- `SIGNUP_CODE`: a unique random value of at least 32 characters.
-	- `PUBLIC_URL`: the final public HTTPS URL, such as `https://blog.example.com`.
+	- `PUBLIC_URL`: optional canonical public HTTPS URL, such as `https://blog.example.com`; if unset, RSS and sitemap use forwarded request host/protocol.
 	- `DATA_HOST_PATH`: the absolute data directory on the Docker host.
 	- `DB_NAME`: SQLite filename in the data directory; defaults to `site.sqlite`.
 	- `UPLOADS_HOST_PATH`: the absolute uploads directory on the Docker host.
