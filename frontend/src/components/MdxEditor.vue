@@ -95,15 +95,19 @@ const editorPlugins = [
 	markdownShortcutPlugin(),
 	toolbarPlugin({
 		toolbarContents: () => createElement(React.Fragment, null,
-			createElement(UndoRedo),
-			createElement(BlockTypeSelect),
-			createElement(BoldItalicUnderlineToggles, { options: ['Bold', 'Italic', 'Underline'] }),
-			createElement(ListsToggle, { options: ['bullet', 'number', 'check'] }),
-			createElement(CreateLink),
-			createElement(InsertImage),
-			createElement(InsertTable),
-			createElement(InsertCodeBlock),
-			createElement(InsertThematicBreak)
+			createElement('div', { className: 'seohakru-toolbar-row' },
+				createElement(UndoRedo),
+				createElement(BlockTypeSelect),
+				createElement(BoldItalicUnderlineToggles, { options: ['Bold', 'Italic', 'Underline'] })
+			),
+			createElement('div', { className: 'seohakru-toolbar-row' },
+				createElement(ListsToggle, { options: ['bullet', 'number', 'check'] }),
+				createElement(CreateLink),
+				createElement(InsertImage),
+				createElement(InsertTable),
+				createElement(InsertCodeBlock),
+				createElement(InsertThematicBreak)
+			)
 		)
 	})
 ];

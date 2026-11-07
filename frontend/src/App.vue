@@ -8,23 +8,21 @@ const MdxEditor = defineAsyncComponent(() => import('./components/MdxEditor.vue'
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
 const defaultSite = {
 	blogName: 'SeoHakRu', tagline: '생각과 기록을 차분히 쌓아가는 공간입니다.',
-	homeLabel: '글 모음', aboutLabel: '소개', signInLabel: '로그인', searchPlaceholder: '글 검색',
+	homeLabel: '글 모음', signInLabel: '로그인', searchPlaceholder: '글 검색',
 	heroEyebrow: '생각과 기록을 담습니다.', issueLabel: '호', issueNumber: '제1호', volumeLabel: '권', establishedLabel: '2026년 시작',
-	journalLabel: '기록', allNotesLabel: '전체 글', aboutKicker: 'SEOHAKRU / 소개',
+	journalLabel: '기록', allNotesLabel: '전체 글',
 	welcomeLabel: '다시 오셨네요', adminAccessLabel: '관리자 로그인', loginNote: '계정에 로그인해 글을 관리하세요.',
 	registrationNote: '초대 코드가 있어야 작가 계정을 만들 수 있습니다.',
 	registerPrompt: '계정이 없나요? 초대 코드로 가입하세요.', loginPrompt: '이미 계정이 있나요? 로그인하세요.',
 	deleteConfirm: '이 글을 삭제할까요? 삭제하면 되돌릴 수 없습니다.', uploadingLabel: '이미지 업로드 중…', uploadHint: '이미지 파일 · 최대 5MB', chooseImageLabel: '이미지 선택', removeImageLabel: '이미지 제거',
 	titlePlaceholder: '글 제목을 입력하세요',
 	tagsPlaceholder: '기록, 책, 일상', markdownPlaceholder: '여기에 글을 작성하세요…',
-	visibilityHint: '공개가 기본 설정입니다. 비공개 글은 관리자만 볼 수 있습니다.',
-	settingsNote: '홈, 소개, 메뉴와 편집 화면에 표시되는 문구를 바꿉니다.', copyrightLabel: '© 2026',
+	settingsNote: '홈, 메뉴와 편집 화면에 표시되는 문구를 바꿉니다.', copyrightLabel: '© 2026',
 	latestLabel: '최근 글', emptyLabel: '아직 글이 없습니다. 첫 글을 기다리고 있어요.',
-	editPostLabel: '글 수정', newPostLabel: '새 글 작성', aboutHeading: '이곳에 대하여',
-	aboutBody: 'SeoHakRu는 오래 남기고 싶은 생각과 작은 발견을 기록하는 공간입니다.\n\n이 페이지의 문구도 관리자 설정에서 바꿀 수 있습니다.',
+	editPostLabel: '글 수정', newPostLabel: '새 글 작성',
 	footerText: '천천히, 정성껏 기록합니다.', readMoreLabel: '글 읽기', privateLabel: '비공개', adminLabel: '관리자',
 	createLabel: '새 글', saveLabel: '저장', cancelLabel: '취소', deleteLabel: '삭제',
-	titleLabel: '제목', coverLabel: '대표 이미지', tagsLabel: '주제', contentLabel: '본문',
+	titleLabel: '제목', coverLabel: '대표 이미지', tagsLabel: '주제',
 	visibilityLabel: '공개 설정', publicLabel: '공개', privateOptionLabel: '비공개',
 	accountLabel: '이메일 또는 계정 이름', passwordLabel: '비밀번호', inviteLabel: '초대 코드',
 	signupLabel: '작가 계정 만들기', logoutLabel: '로그아웃', settingsLabel: '사이트 문구 편집',
@@ -79,31 +77,45 @@ const siteDraft = reactive({ ...defaultSite });
 const draft = reactive({ title: '', coverImage: '', tags: '', content: '', visibility: 'public', status: 'published', scheduledAt: '', seoTitle: '', seoDescription: '' });
 const editingId = ref(null);
 const editorReturnView = ref('home');
+const theme = ref(localStorage.getItem('seohakru_theme') === 'dark' ? 'dark' : 'light');
 let autosaveTimer;
+
+function applyTheme() {
+	document.documentElement.dataset.theme = theme.value;
+	document.documentElement.style.colorScheme = theme.value;
+	document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.value === 'dark' ? '#171c19' : '#f6f5f0');
+}
+
+function toggleTheme() {
+	theme.value = theme.value === 'dark' ? 'light' : 'dark';
+	localStorage.setItem('seohakru_theme', theme.value);
+	applyTheme();
+}
+
+applyTheme();
 
 const siteFields = [
 	{ heading: '브랜드와 소개', keys: ['blogName', 'tagline', 'footerText'] },
-	{ heading: '메뉴와 동작', keys: ['homeLabel', 'aboutLabel', 'signInLabel', 'adminLabel', 'createLabel', 'settingsLabel', 'logoutLabel', 'backLabel'] },
+	{ heading: '메뉴와 동작', keys: ['homeLabel', 'signInLabel', 'adminLabel', 'createLabel', 'settingsLabel', 'logoutLabel', 'backLabel'] },
 	{ heading: '글 목록', keys: ['heroEyebrow', 'issueLabel', 'issueNumber', 'volumeLabel', 'establishedLabel', 'journalLabel', 'allNotesLabel', 'latestLabel', 'searchPlaceholder', 'emptyLabel', 'noResultsLabel', 'readMoreLabel', 'privateLabel'] },
-	{ heading: '소개 페이지', keys: ['aboutKicker', 'aboutHeading', 'aboutBody'] },
-				{ heading: '글 편집과 계정', keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'contentLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'visibilityHint', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel'] },
+				{ heading: '글 편집과 계정', keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel'] },
 				{ heading: '작가와 관리자', keys: ['profileLabel', 'profileHeading', 'displayNameLabel', 'bioLabel', 'profileSaveLabel', 'managePostsLabel', 'membersLabel', 'analyticsLabel', 'memberRoleLabel', 'adminRoleLabel', 'authorRoleLabel', 'postCountLabel', 'memberJoinedLabel', 'manageHeading', 'featuredLabel', 'featurePostLabel', 'unfeaturePostLabel', 'relatedPostsLabel', 'viewsLabel', 'popularPostsLabel', 'noAnalyticsLabel', 'authorPostsLabel', 'memberUpdatedLabel', 'profileUpdatedLabel'] }
 ];
 
 const siteFieldLabels = {
-	blogName: '블로그 이름', tagline: '소개 문구', footerText: '하단 문구', homeLabel: '글 메뉴', aboutLabel: '소개 메뉴',
+	blogName: '블로그 이름', tagline: '소개 문구', footerText: '하단 문구', homeLabel: '글 메뉴',
 	signInLabel: '로그인 버튼', adminLabel: '관리자 표시', createLabel: '새 글 버튼', settingsLabel: '설정 버튼', logoutLabel: '로그아웃 버튼', backLabel: '목록으로 버튼',
 	heroEyebrow: '첫 화면 작은 문구', issueLabel: '호수 표시', issueNumber: '호수', volumeLabel: '권 표시', establishedLabel: '연도 표시',
 	journalLabel: '글 목록 표시', allNotesLabel: '전체 주제 버튼', latestLabel: '글 목록 제목', searchPlaceholder: '검색 안내',
 	emptyLabel: '빈 목록 문구', noResultsLabel: '검색 결과 없음 문구', readMoreLabel: '글 열기 버튼', privateLabel: '비공개 표시',
-	aboutKicker: '소개 페이지 작은 문구', aboutHeading: '소개 제목', aboutBody: '소개 내용', titleLabel: '제목 입력 이름',
-	coverLabel: '이미지 입력 이름', tagsLabel: '주제 입력 이름', contentLabel: '본문 입력 이름', visibilityLabel: '공개 설정 이름',
+	titleLabel: '제목 입력 이름',
+	coverLabel: '이미지 입력 이름', tagsLabel: '주제 입력 이름', visibilityLabel: '공개 설정 이름',
 	publicLabel: '공개 옵션', privateOptionLabel: '비공개 옵션', saveLabel: '저장 버튼', cancelLabel: '취소 버튼', deleteLabel: '삭제 버튼',
 	accountLabel: '계정 입력 이름', passwordLabel: '비밀번호 입력 이름', inviteLabel: '초대 코드 입력 이름', signupLabel: '가입 버튼',
 	welcomeLabel: '로그인 작은 문구', adminAccessLabel: '가입 작은 문구', loginNote: '로그인 안내', registrationNote: '가입 안내',
 	registerPrompt: '가입 전환 버튼', loginPrompt: '로그인 전환 버튼', uploadingLabel: '업로드 중 문구', uploadHint: '업로드 안내',
 	titlePlaceholder: '제목 입력 안내', tagsPlaceholder: '주제 입력 안내', markdownPlaceholder: '본문 입력 안내',
-	visibilityHint: '공개 설정 안내', settingsNote: '설정 안내', deleteConfirm: '삭제 확인 문구', savingLabel: '저장 중 문구',
+	settingsNote: '설정 안내', deleteConfirm: '삭제 확인 문구', savingLabel: '저장 중 문구',
 	waitingLabel: '대기 중 문구', copyrightLabel: '저작권 표시', editPostLabel: '글 수정 표시', newPostLabel: '새 글 작성 표시', chooseImageLabel: '이미지 선택 버튼', removeImageLabel: '이미지 제거 버튼',
 	draftLabel: '초안 옵션', scheduledLabel: '예약 옵션', publishedLabel: '게시 옵션', statusLabel: '게시 상태 입력명', scheduleLabel: '예약 시간 입력명',
 	seoTitleLabel: '검색 제목 입력명', seoDescriptionLabel: '검색 설명 입력명', seoPreviewLabel: '검색 미리보기 제목', autoSaveLabel: '자동 저장 중 문구', autoSavedLabel: '자동 저장 완료 문구',
@@ -621,11 +633,8 @@ function formatMonth(value) {
 	<div class="site-shell">
 		<header class="topbar">
 			<a class="wordmark" href="#home" @click.prevent="goHome">{{ site.blogName }}<span class="wordmark-dot">.</span></a>
-			<nav class="main-nav" aria-label="주 메뉴">
-				<button class="nav-link" :class="{ active: view === 'home' }" @click="goHome">{{ site.homeLabel }}</button>
-				<button class="nav-link" :class="{ active: view === 'about' }" @click="view = 'about'">{{ site.aboutLabel }}</button>
-			</nav>
 			<div class="top-actions">
+				<button class="theme-toggle" type="button" :aria-label="theme === 'dark' ? '밝은 화면으로 전환' : '어두운 화면으로 전환'" :title="theme === 'dark' ? '밝은 화면으로 전환' : '어두운 화면으로 전환'" :aria-pressed="theme === 'dark'" @click="toggleTheme"><span aria-hidden="true">{{ theme === 'dark' ? '☀' : '☾' }}</span></button>
 				<template v-if="admin">
 					<button class="profile-button" @click="openProfile">{{ admin.displayName || admin.username }}</button>
 					<details v-if="isAdmin" class="admin-menu"><summary>{{ site.manageHeading }}</summary><div class="admin-menu-panel"><button @click="openPostManager(); $event.currentTarget.closest('details').open = false">{{ site.managePostsLabel }}</button><button @click="openMembers(); $event.currentTarget.closest('details').open = false">{{ site.membersLabel }}</button><button @click="openAnalytics(); $event.currentTarget.closest('details').open = false">{{ site.analyticsLabel }}</button><button @click="openSettings(); $event.currentTarget.closest('details').open = false">{{ site.settingsLabel }}</button></div></details>
@@ -685,13 +694,6 @@ function formatMonth(value) {
 					<div v-else class="empty-state"><span class="empty-mark">✳</span><p>{{ searchQuery || selectedTag || selectedMonth ? site.noResultsLabel : site.emptyLabel }}</p><button v-if="admin && !searchQuery && !selectedTag && !selectedMonth" class="text-action" @click="openEditor()">{{ site.createLabel }} <span aria-hidden="true">↗</span></button></div>
 					<button v-if="matchingPosts.length > visiblePosts.length" class="load-more-button" @click="postLimit += 9">{{ site.loadMoreLabel }} <span aria-hidden="true">＋</span></button>
 				</section>
-			</section>
-
-			<section v-else-if="view === 'about'" class="about-view">
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.aboutKicker }}</p>
-				<h1>{{ site.aboutHeading }}</h1>
-				<div class="about-layout"><div class="about-ornament" aria-hidden="true"><span>SHR</span><i></i></div><div class="markdown-content about-copy" v-html="renderMarkdown(site.aboutBody)"></div></div>
-				<button v-if="isAdmin" class="text-action about-edit" @click="openSettings">{{ site.settingsLabel }} <span aria-hidden="true">↗</span></button>
 			</section>
 
 			<section v-else-if="view === 'profile' && admin" class="profile-view">
@@ -798,12 +800,11 @@ function formatMonth(value) {
 						<details v-if="editingId" class="revision-panel"><summary>{{ site.revisionsLabel }} · {{ revisions.length }}</summary><p v-if="!revisions.length">{{ site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="restoreRevision(revision)">{{ site.restoreLabel }}</button></li></ol></details>
 					</aside>
 					<section class="editor-writing-area">
-						<header class="mdx-editor-heading"><div><span>{{ site.contentLabel }}</span><small>{{ site.visibilityHint }}</small></div><p class="autosave-status" aria-live="polite">{{ autosaveStatus }}</p></header>
 						<MdxEditor v-model="draft.content" :placeholder="site.markdownPlaceholder" />
 					</section>
 				</div>
 				<p v-if="editorError" class="form-error">{{ editorError }}</p>
-				<div class="full-editor-actions"><button v-if="editingId" class="delete-button" type="button" @click="deletePost">{{ site.deleteLabel }}</button><button class="outline-button" type="button" :disabled="busy" @click="savePost('draft')">{{ site.draftLabel }}</button><span class="editor-action-spacer"></span><button class="quiet-button" type="button" @click="cancelEditor">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : draft.status === 'scheduled' ? site.scheduledLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
+				<div class="full-editor-actions"><button v-if="editingId" class="delete-button" type="button" @click="deletePost">{{ site.deleteLabel }}</button><button class="outline-button" type="button" :disabled="busy" @click="savePost('draft')">{{ site.draftLabel }}</button><p v-if="autosaveStatus" class="autosave-status" aria-live="polite">{{ autosaveStatus }}</p><span class="editor-action-spacer"></span><button class="quiet-button" type="button" @click="cancelEditor">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : draft.status === 'scheduled' ? site.scheduledLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
 			</form>
 		</Teleport>
 
@@ -812,7 +813,7 @@ function formatMonth(value) {
 				<header class="editor-header"><div><p class="eyebrow"><span class="eyebrow-rule"></span>사이트 설정</p><h2 id="settings-title">{{ site.settingsLabel }}</h2></div><button class="dialog-close" aria-label="설정 닫기" @click="settingsOpen = false">×</button></header>
 				<p class="dialog-note settings-note">{{ site.settingsNote }}</p>
 				<form @submit.prevent="saveSettings">
-					<section v-for="group in siteFields" :key="group.heading" class="settings-group"><h3>{{ group.heading }}</h3><div class="settings-grid"><label v-for="key in group.keys" :key="key">{{ siteFieldLabels[key] }}<textarea v-if="key === 'aboutBody'" v-model="siteDraft[key]" rows="5" /><input v-else v-model="siteDraft[key]" /></label></div></section>
+					<section v-for="group in siteFields" :key="group.heading" class="settings-group"><h3>{{ group.heading }}</h3><div class="settings-grid"><label v-for="key in group.keys" :key="key">{{ siteFieldLabels[key] }}<input v-model="siteDraft[key]" /></label></div></section>
 					<div class="editor-actions settings-actions"><button type="button" class="quiet-button" @click="settingsOpen = false">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
 				</form>
 			</section>
