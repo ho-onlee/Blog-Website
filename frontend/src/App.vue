@@ -93,23 +93,23 @@ applyTheme();
 
 const siteFields = [
 	{
-		heading: '브랜드와 소개',
+		heading: 'brand',
 		keys: ['blogName', 'tagline', 'footerText']
 	},
 	{
-		heading: '메뉴와 동작',
+		heading: 'menu',
 		keys: ['homeLabel', 'signInLabel', 'adminLabel', 'createLabel', 'settingsLabel', 'logoutLabel', 'backLabel']
 	},
 	{
-		heading: '글 목록',
+		heading: 'posts',
 		keys: ['heroEyebrow', 'issueLabel', 'issueNumber', 'volumeLabel', 'establishedLabel', 'journalLabel', 'allNotesLabel', 'latestLabel', 'searchPlaceholder', 'emptyLabel', 'noResultsLabel', 'readMoreLabel', 'privateLabel']
 	},
 	{
-		heading: '글 편집과 계정',
+		heading: 'writing',
 		keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel']
 	},
 	{
-		heading: '작가와 관리자',
+		heading: 'authors',
 		keys: ['profileLabel', 'profileHeading', 'displayNameLabel', 'bioLabel', 'profileSaveLabel', 'managePostsLabel', 'membersLabel', 'analyticsLabel', 'memberRoleLabel', 'adminRoleLabel', 'authorRoleLabel', 'postCountLabel', 'memberJoinedLabel', 'manageHeading', 'featuredLabel', 'featurePostLabel', 'unfeaturePostLabel', 'relatedPostsLabel', 'viewsLabel', 'popularPostsLabel', 'noAnalyticsLabel', 'authorPostsLabel', 'memberUpdatedLabel', 'profileUpdatedLabel']
 	}
 ];
@@ -617,7 +617,7 @@ function formatMonth(value) {
 		<header class="topbar">
 			<a class="wordmark" href="#home" @click.prevent="goHome">{{ site.blogName }}<span class="wordmark-dot">.</span></a>
 			<div class="top-actions">
-				<select v-model="language" class="language-select" :aria-label="currentLocale.ui.languageLabel"><option value="en">English</option><option value="ko">한국어</option></select>
+				<select v-model="language" class="language-select" :aria-label="currentLocale.ui.languageLabel"><option value="en">{{ currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ currentLocale.ui.languageKoreanName }}</option></select>
 				<button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" :aria-pressed="theme === 'dark'" @click="toggleTheme"><span aria-hidden="true">{{ theme === 'dark' ? '☀' : '☾' }}</span></button>
 				<template v-if="admin">
 					<button class="profile-button" @click="openProfile">{{ admin.displayName || admin.username }}</button>
@@ -736,7 +736,7 @@ function formatMonth(value) {
 					<h2 id="comments-title">{{ site.commentsLabel }} <span>{{ comments.filter((comment) => comment.status === 'approved' || isAdmin).length }}</span></h2>
 					<p v-if="!comments.length" class="no-comments">{{ site.noCommentsLabel }}</p>
 					<ol v-else class="comment-list"><li v-for="comment in comments" :key="comment.id"><div class="comment-meta"><strong>{{ comment.name }}</strong><time :datetime="comment.createdAt">{{ formatDate(comment.createdAt.slice(0, 10)) }}</time><span v-if="comment.status === 'pending'" class="private-badge">{{ site.commentPendingLabel }}</span></div><p>{{ comment.content }}</p><div v-if="isAdmin && comment.status === 'pending'" class="comment-moderation"><button class="text-action" @click="moderateComment(comment, 'approved')">{{ site.approveLabel }}</button><button class="delete-button" @click="moderateComment(comment, 'rejected')">{{ site.rejectLabel }}</button></div></li></ol>
-					<form class="comment-form" @submit.prevent="submitComment"><label>{{ site.commentNameLabel }}<input v-model="commentDraft.name" maxlength="60" required /></label><label>{{ site.commentContentLabel }}<textarea v-model="commentDraft.content" rows="3" maxlength="2000" required /></label><label class="honeypot-field" aria-hidden="true">Website<input v-model="commentDraft.website" tabindex="-1" autocomplete="off" /></label><div class="comment-form-footer"><small>{{ site.commentReviewNote }}</small><button class="primary-button" type="submit">{{ site.commentSubmitLabel }}</button></div><p v-if="commentNotice" class="form-note">{{ commentNotice }}</p></form>
+					<form class="comment-form" @submit.prevent="submitComment"><label>{{ site.commentNameLabel }}<input v-model="commentDraft.name" maxlength="60" required /></label><label>{{ site.commentContentLabel }}<textarea v-model="commentDraft.content" rows="3" maxlength="2000" required /></label><label class="honeypot-field" aria-hidden="true">{{ currentLocale.ui.honeypotLabel }}<input v-model="commentDraft.website" tabindex="-1" autocomplete="off" /></label><div class="comment-form-footer"><small>{{ site.commentReviewNote }}</small><button class="primary-button" type="submit">{{ site.commentSubmitLabel }}</button></div><p v-if="commentNotice" class="form-note">{{ commentNotice }}</p></form>
 				</section>
 				<div v-if="canEditPost(selectedPost)" class="post-admin-actions"><button class="outline-button" @click="openEditor(selectedPost)">✎ {{ site.editPostLabel }}</button></div>
 			</article>
@@ -772,7 +772,7 @@ function formatMonth(value) {
 				<label class="editor-title-field">{{ site.titleLabel }}<input class="editor-title-input" v-model="draft.title" required maxlength="180" :placeholder="site.titlePlaceholder" /></label>
 				<div class="editor-workspace">
 					<aside class="editor-settings-rail">
-						<div class="editor-rail-heading"><span>SEOHAKRU / {{ editingId ? site.editPostLabel : site.newPostLabel }}</span><strong>{{ site.statusLabel }}</strong></div>
+						<div class="editor-rail-heading"><span>{{ site.blogName.toUpperCase() }} / {{ editingId ? site.editPostLabel : site.newPostLabel }}</span><strong>{{ site.statusLabel }}</strong></div>
 						<label>{{ site.tagsLabel }}<input v-model="draft.tags" :placeholder="site.tagsPlaceholder" /></label>
 						<div class="editor-select-row">
 							<label>{{ site.visibilityLabel }}<select v-model="draft.visibility"><option value="public">{{ site.publicLabel }}</option><option value="private">{{ site.privateOptionLabel }}</option></select></label>

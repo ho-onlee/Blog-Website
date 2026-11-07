@@ -31,7 +31,7 @@ import koreanLocale from '../locales/ko.json';
 
 const props = defineProps({
 	modelValue: { type: String, default: '' },
-	placeholder: { type: String, default: '본문을 입력하세요' },
+	placeholder: { type: String, default: '' },
 	locale: { type: String, default: 'ko' }
 });
 const emit = defineEmits(['update:modelValue']);
@@ -85,7 +85,7 @@ function renderEditor() {
 		onChange: (value) => emit('update:modelValue', value),
 		plugins: editorPlugins,
 		translation: translateEditor,
-		placeholder: props.placeholder,
+		placeholder: props.placeholder || locales[props.locale]?.site.markdownPlaceholder || locales.en.site.markdownPlaceholder,
 		className: 'seohakru-mdx',
 		contentEditableClassName: 'seohakru-mdx-content'
 	}));
