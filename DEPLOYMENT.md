@@ -47,7 +47,7 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 1. Commit and push the Portainer stack file and these instructions to `main`. For a private repository, configure Git credentials in Portainer; do not put a GitHub token in this repository.
 2. On the Docker host, create three writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`.
 3. If migrating an existing site, copy its SQLite database file and matching `uploads` contents into the persistent directories before deploying. Set `DB_NAME` to the copied SQLite filename. Leave the data directory empty for a fresh site; `site.sqlite` is the default filename.
-4. In Portainer, choose **Stacks → Add stack → Git Repository**. Set the repository URL above, reference `refs/heads/main`, and Compose path `compose.portainer.yaml`.
+4. In Portainer, choose **Stacks → Add stack → Git Repository**. Set the repository URL above and reference `refs/heads/main`. Use the default Compose path `docker-compose.yml` (or explicitly enter that filename).
 5. Add these stack environment variables in Portainer:
 
 	- `SIGNUP_CODE`: a unique random value of at least 32 characters.

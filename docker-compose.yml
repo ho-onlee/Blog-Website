@@ -1,0 +1,58 @@
+services:
+  api:
+    build:
+      context: ./backend
+    depends_on:
+      - ai
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATA_DIR: /app/data
+      DB_NAME: ${DB_NAME:-site.sqlite}
+      SITE_NAME: ${SITE_NAME:-}
+      FAVICON_URL: ${FAVICON_URL:-/favicon.svg}
+      SIGNUP_CODE: ${SIGNUP_CODE:?Set a random SIGNUP_CODE of at least 32 characters}
+      PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS URL}
+      BACKUP_DIR: /backups
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
+      AI_BASE_URL: http://ai:11434
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-120000}
+      AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-20000}
+      TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}
+    volumes:
+      - "${DATA_HOST_PATH:?Set an absolute persistent data directory on the Docker host}:/app/data"
+      - "${UPLOADS_HOST_PATH:?Set an absolute persistent uploads directory on the Docker host}:/app/uploads"
+      - "${BACKUP_HOST_PATH:?Set a durable backup directory on the Docker host}:/backups"
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  ai:
+    build:
+      context: ./ai
+    environment:
+      AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
+    volumes:
+      - ollama_models:/root/.ollama
+    expose:
+      - "11434"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
