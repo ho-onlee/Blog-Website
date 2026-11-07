@@ -1,6 +1,6 @@
-# SeoHakRu
+# Blog-Website
 
-SeoHakRu is a Korean-first personal publishing site with a bilingual English/Korean interface, author accounts, public and private posts, and a full-page MDX editor.
+Blog-Website is a personal publishing site with author accounts, public and private posts, and a full-page MDX editor.
 
 ## Features
 
