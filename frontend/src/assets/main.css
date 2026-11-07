@@ -96,6 +96,7 @@ a { color: inherit; text-decoration: none; }
 .quiet-button { background: none; border: 0; padding: 8px 0; color: var(--muted); font-size: 14px; font-weight: 600; transition: color .18s ease; }
 .quiet-button:hover { color: var(--ink); }
 .top-actions { display: flex; justify-content: flex-end; align-items: center; gap: 20px; }
+.language-select { max-width: 112px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 6px 19px 6px 5px; color: var(--ink); font-size: 12px; }
 .theme-toggle { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: transparent; color: var(--ink); font-size: 18px; line-height: 1; }
 .theme-toggle:hover { border-color: var(--green); color: var(--green); }
 .profile-button { max-width: 180px; overflow: hidden; border: 0; background: transparent; padding: 8px 0; color: var(--green); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -410,6 +411,7 @@ a { color: inherit; text-decoration: none; }
   .wordmark { font-size: 16px; }
   .quiet-button { font-size: 12px; }
   .top-actions { gap: 9px; }
+  .language-select { max-width: 84px; padding: 5px 15px 5px 2px; font-size: 10px; }
   .profile-button { max-width: 72px; font-size: 11px; }
   .admin-menu summary { max-width: 50px; overflow: hidden; font-size: 10px; white-space: nowrap; }
   .admin-menu-panel { right: -78px; width: 175px; }
