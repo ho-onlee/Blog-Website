@@ -1,6 +1,6 @@
 {
   "site": {
-    "blogName": "SeoHakRu",
+    "blogName": "website",
     "tagline": "생각과 기록을 차분히 쌓아가는 공간입니다.",
     "homeLabel": "글 모음",
     "signInLabel": "로그인",
@@ -249,7 +249,8 @@
     "closeSettingsLabel": "설정 닫기",
     "darkModeLabel": "어두운 화면으로 전환",
     "lightModeLabel": "밝은 화면으로 전환",
-    "honeypotLabel": "웹사이트"
+    "honeypotLabel": "웹사이트",
+    "siteNameManagedHint": "사이트 이름은 Docker SITE_NAME 환경 변수에서 설정됩니다."
   },
   "mdx": {
     "toolbar.undo": "실행 취소 {{shortcut}}",
@@ -313,5 +314,62 @@
     "Link title": "링크 제목",
     "Upload an image": "이미지 삽입",
     "Select code block language": "코드 언어 선택"
+  },
+  "ai": {
+    "settingsHeading": "AI 도우미",
+    "settingsDescription": "로컬 또는 호스팅 모델을 선택합니다. API 키는 서버 환경에 보관됩니다.",
+    "providerLabel": "제공자",
+    "modelLabel": "모델",
+    "apiKeyHint": "유료 API 키는 서버 .env 파일이나 Portainer 환경 변수에 설정하세요.",
+    "statusLabel": "연결 상태",
+    "checkStatus": "연결 확인",
+    "saveSettings": "AI 설정 저장",
+    "settingsSaved": "AI 설정을 저장했습니다.",
+    "archiveToggle": "공개 글 AI 질의 허용",
+    "archiveDescription": "게시된 공개 글만 답변에 사용하며 요청 횟수를 제한합니다.",
+    "providers": {
+      "ollama": "로컬 Ollama",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini"
+    },
+    "status": {
+      "ready": "사용 가능",
+      "not_configured": "API 키가 설정되지 않았습니다",
+      "model_missing": "모델을 아직 내려받지 않았습니다",
+      "unavailable": "제공자에 연결할 수 없습니다",
+      "checking": "확인 중…"
+    },
+    "editorHeading": "글쓰기 도우미",
+    "draftPrivacyNote": "AI 요청에는 현재 초안이 포함되어 선택한 제공자로 전송됩니다. 민감한 내용은 제공자의 데이터 정책을 확인하세요.",
+    "actionLabel": "작업",
+    "actions": {
+      "outline": "개요 만들기",
+      "continue": "초안 이어 쓰기",
+      "rewrite": "더 명확하게 다듬기",
+      "shorten": "초안 줄이기",
+      "proofread": "문장 교정",
+      "translate": "번역"
+    },
+    "targetLanguage": "번역 언어",
+    "generate": "제안 만들기",
+    "generating": "생성 중…",
+    "suggestionLabel": "제안 미리보기",
+    "useSuggestion": "제안 적용",
+    "metadataAction": "메타데이터 생성",
+    "metadataGenerating": "메타데이터 생성 중…",
+    "askHeading": "공개 글에 질문하기",
+    "askPlaceholder": "게시된 글에 대해 질문하세요",
+    "askAction": "질문",
+    "answerHeading": "답변",
+    "archiveNoMatch": "관련된 공개 글을 찾지 못했습니다.",
+    "commentReviewAction": "AI 검토",
+    "commentReviewing": "검토 중…",
+    "commentRecommendation": "AI 제안",
+    "recommendations": {
+      "approve": "승인에 적합해 보입니다",
+      "reject": "스팸 또는 부적절한 내용일 수 있습니다",
+      "review": "직접 확인이 필요합니다"
+    }
   }
 }

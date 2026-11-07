@@ -1,6 +1,6 @@
 {
   "site": {
-    "blogName": "SeoHakRu",
+    "blogName": "website",
     "tagline": "A quiet place to gather thoughts and notes.",
     "homeLabel": "Posts",
     "signInLabel": "Log in",
@@ -249,7 +249,8 @@
     "closeSettingsLabel": "Close settings",
     "darkModeLabel": "Switch to dark mode",
     "lightModeLabel": "Switch to light mode",
-    "honeypotLabel": "Website"
+    "honeypotLabel": "Website",
+    "siteNameManagedHint": "The site name is set by the Docker SITE_NAME environment variable."
   },
   "mdx": {
     "toolbar.undo": "Undo {{shortcut}}",
@@ -313,5 +314,62 @@
     "Link title": "Link title",
     "Upload an image": "Insert image",
     "Select code block language": "Select code language"
+  },
+  "ai": {
+    "settingsHeading": "AI assistant",
+    "settingsDescription": "Choose a local or hosted model. API keys stay in the server environment.",
+    "providerLabel": "Provider",
+    "modelLabel": "Model",
+    "apiKeyHint": "Paid provider keys must be set in the server .env file or Portainer environment.",
+    "statusLabel": "Availability",
+    "checkStatus": "Check connection",
+    "saveSettings": "Save AI settings",
+    "settingsSaved": "AI settings saved.",
+    "archiveToggle": "Enable public archive Q&A",
+    "archiveDescription": "Answers use published public posts only. Requests are rate-limited.",
+    "providers": {
+      "ollama": "Local Ollama",
+      "openai": "OpenAI",
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini"
+    },
+    "status": {
+      "ready": "Ready",
+      "not_configured": "API key not configured",
+      "model_missing": "Model is not downloaded",
+      "unavailable": "Provider unavailable",
+      "checking": "Checking…"
+    },
+    "editorHeading": "Writing assistant",
+    "draftPrivacyNote": "AI requests include the current draft and go to the selected provider. Review the provider’s data policy before sending sensitive text.",
+    "actionLabel": "Action",
+    "actions": {
+      "outline": "Make an outline",
+      "continue": "Continue draft",
+      "rewrite": "Improve clarity",
+      "shorten": "Shorten draft",
+      "proofread": "Proofread",
+      "translate": "Translate"
+    },
+    "targetLanguage": "Translate to",
+    "generate": "Generate suggestion",
+    "generating": "Generating…",
+    "suggestionLabel": "Suggestion preview",
+    "useSuggestion": "Use suggestion",
+    "metadataAction": "Generate metadata",
+    "metadataGenerating": "Generating metadata…",
+    "askHeading": "Ask the public archive",
+    "askPlaceholder": "Ask about published posts",
+    "askAction": "Ask",
+    "answerHeading": "Answer",
+    "archiveNoMatch": "I couldn’t find a relevant published post.",
+    "commentReviewAction": "AI review",
+    "commentReviewing": "Reviewing…",
+    "commentRecommendation": "AI suggestion",
+    "recommendations": {
+      "approve": "Likely suitable",
+      "reject": "Likely spam or abuse",
+      "review": "Needs human review"
+    }
   }
 }

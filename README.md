@@ -10,6 +10,7 @@ SeoHakRu is a Korean-first personal publishing site with a bilingual English/Kor
 - MDX writing, revisions, cover images, SEO fields, comments, RSS, and sitemap
 - SQLite storage with persistent sessions
 - Light and dark themes
+- Optional local Ollama writing, metadata, translation, public archive Q&A, and comment-review assistance
 
 Post text, author names, tags, and administrator-customized site copy are content, not UI translations. Switching languages does not rewrite them.
 
@@ -34,6 +35,16 @@ npm run dev
 ```
 
 Open the Vite URL shown in the terminal, usually `http://localhost:5173`. The frontend proxies API and media requests to `http://localhost:3001`.
+
+## AI Setup
+
+The Docker Compose stacks include a separate CPU-only Ollama image in `ai/`. Set `AI_MODEL` in `.env` to choose a model (default: `qwen2.5:3b`). On first startup, Ollama downloads that model into a persistent Docker volume. This can take time and disk space; the API does not publish Ollama's port.
+
+The admin AI settings can select local Ollama or a configured paid provider: OpenAI, Anthropic, or Google Gemini. Put paid API keys in the server `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`) or Portainer stack environment. Keys are never sent to the browser or stored in SQLite. Provider-specific model defaults are set by `OPENAI_MODEL`, `ANTHROPIC_MODEL`, and `GEMINI_MODEL`; the admin model field can override them. `AI_PROVIDER` and `AI_MODEL` set the initial defaults.
+
+Available tools include draft outlining/continuation/rewrite/proofreading, translation, SEO metadata suggestions, public-post Q&A, and comment triage. AI suggestions are previews; they do not publish posts, and comment decisions remain manual. Writer AI calls are limited to 30 per account per hour. Public archive Q&A is off by default, limited to 10 requests per IP per hour, and uses only published public posts when enabled. Do not send sensitive drafts to hosted providers unless you accept their data handling terms.
+
+In Portainer, configure API keys as stack environment variables. Set `TRUST_PROXY` to the private proxy ranges used by the deployment (Compose defaults to loopback/link-local/unique-local ranges) so IP-based Q&A limits use the visitor address forwarded by Nginx.
 
 ## Translation Files
 
@@ -63,5 +74,7 @@ npm run build
 ## Deployment
 
 For Portainer Git stacks, use [`compose.portainer.yaml`](compose.portainer.yaml) and follow [DEPLOYMENT.md](DEPLOYMENT.md). Configure environment variables and persistent host directories in Portainer. Keep `.env`, SQLite data, uploads, and backups out of Git.
+
+Set `SITE_NAME` in `.env` or Portainer to choose the deployed site's name. Its generic default is `website`; an explicit value overrides the saved database name and locks that field in admin settings. If it is unset, existing saved site branding is preserved. Set `FAVICON_URL` to `/favicon.svg` or an absolute image URL; a generic book favicon is included.
 
 The configured GitHub repository has private account and post data in its earlier Git history. Keep it private unless that history is scrubbed before publication.

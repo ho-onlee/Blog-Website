@@ -1,5 +1,9 @@
 # Public Deployment
 
+## Site Name and Favicon
+
+Set `SITE_NAME` in `.env` or Portainer to choose the site name; the neutral fresh-install default is `website`. When `SITE_NAME` is set, it overrides any saved database name and the admin site-name field is locked. If it is empty, the saved site name is preserved. `FAVICON_URL` accepts `/favicon.svg` or an absolute image URL; the repository includes a generic book favicon.
+
 ## Signup Secret
 
 Copy `.env.example` to `.env`, then set `SIGNUP_CODE` to a unique random value of at least 32 bytes. One way to generate a 64-character hexadecimal value is:
@@ -9,6 +13,14 @@ node -p "require('node:crypto').randomBytes(32).toString('hex')"
 ```
 
 Compose refuses to start without a value, and the production API refuses values shorter than 32 bytes. Keep `.env` private and never commit it. The first account registered against an empty database becomes the administrator, so bind the site to localhost or keep it behind a firewall until that account is created. Set `PUBLIC_URL` to the final HTTPS URL before enabling public traffic.
+
+## AI Providers
+
+Both Compose files build a separate CPU-only Ollama container. `AI_PROVIDER=ollama` and `AI_MODEL=qwen2.5:3b` are the defaults. On first startup, Ollama downloads the selected model into a persistent Docker volume; allow time, disk space, and RAM for the download and inference. Port `11434` is internal to the Compose network and is not published.
+
+The admin AI settings can switch among Ollama, OpenAI, Anthropic, and Gemini when the selected provider is configured. Set paid-provider API keys only in `.env` for local Compose or in Portainer's stack environment. Keys stay in the API container and are never stored in the database or returned to the frontend. Set `AI_MODEL` to choose the initial model; the admin model field can override it. Provider-specific model defaults can be set with `OPENAI_MODEL`, `ANTHROPIC_MODEL`, and `GEMINI_MODEL`.
+
+The public archive Q&A feature is disabled by default; enable it in AI settings only after checking its rate limit and possible inference costs. Writer AI requests are capped at 30 per account per hour. Public questions are capped at 10 per client IP per hour. Set `TRUST_PROXY` to your private proxy ranges if you use a reverse proxy, so the forwarded visitor IP is used for limits. Do not set it to `*` or `true` unless every request is guaranteed to pass through a trusted proxy.
 
 ## Backups
 
@@ -44,6 +56,15 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 	- `UPLOADS_HOST_PATH`: the absolute uploads directory on the Docker host.
 	- `BACKUP_HOST_PATH`: the absolute backup directory on the Docker host, preferably on separate storage.
 	- `WEB_PORT`: optional host port for the HTTP web container; defaults to `8080`.
+	- `SITE_NAME`: optional site-name override; the fresh-install fallback is `website`.
+	- `FAVICON_URL`: optional favicon path or absolute URL; defaults to `/favicon.svg`.
+	- `AI_PROVIDER`: optional default provider (`ollama`, `openai`, `anthropic`, or `gemini`); defaults to `ollama`.
+	- `AI_MODEL`: optional default model; defaults to `qwen2.5:3b` and is also pulled by the local Ollama service.
+	- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`: optional paid-provider secrets. Only configure providers you intend to use.
+	- `OPENAI_MODEL`, `ANTHROPIC_MODEL`, `GEMINI_MODEL`: optional model defaults for those providers.
+	- `AI_REQUEST_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`: optional request timeout and input-length limits.
+	- `AI_REQUEST_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`: optional request timeout and input-length limits.
+	- `TRUST_PROXY`: optional comma-separated trusted proxy ranges; keep it limited to the Docker/private proxy network.
 
 6. Deploy the stack and configure your TLS reverse proxy to forward the domain to the Docker host on `WEB_PORT`. Keep the API port private; only the web service is published.
 7. Enable GitOps polling in Portainer if you want commits to `main` to trigger stack updates. Keep the environment variables configured in Portainer; they are not read from a repository `.env` file.

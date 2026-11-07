@@ -20,6 +20,7 @@ const savedLanguage = localStorage.getItem(languageStorageKey);
 const language = ref(savedLanguage === 'ko' ? 'ko' : savedLanguage === 'en' ? 'en' : systemLanguage);
 const currentLocale = computed(() => locales[language.value] || locales.en);
 const savedSite = ref({ ...defaultSite });
+const siteNameManagedByEnv = computed(() => savedSite.value.siteNameManagedByEnv === true);
 const site = computed(() => {
 	const translatedSite = currentLocale.value.site;
 	// Translate defaults only; preserve any copy customized by the site owner.
@@ -63,6 +64,22 @@ const revisions = ref([]);
 const comments = ref([]);
 const commentNotice = ref('');
 const shareStatus = ref('');
+const aiConfig = reactive({ provider: 'ollama', model: 'qwen2.5:3b', archiveEnabled: false, providers: [] });
+const aiStatus = ref({ state: 'checking', available: false });
+const aiSettingsError = ref('');
+const aiSettingsNotice = ref('');
+const aiSettingsBusy = ref(false);
+const aiAction = ref('outline');
+const aiTargetLanguage = ref('en');
+const aiSuggestion = ref('');
+const aiAssistantError = ref('');
+const aiAssistantBusy = ref(false);
+const aiMetadataBusy = ref(false);
+const archiveQuestion = ref('');
+const archiveAnswer = ref('');
+const archiveCitations = ref([]);
+const archiveBusy = ref(false);
+const aiCommentReviews = reactive({});
 const commentDraft = reactive({ name: '', content: '', website: '' });
 const profileDraft = reactive({ displayName: '', bio: '' });
 const authDraft = reactive({ username: '', password: '', inviteCode: '' });
@@ -190,6 +207,13 @@ function setPageMeta(title, description, image = '') {
 	setMeta('og:title', title, 'property');
 	setMeta('og:description', description, 'property');
 	setMeta('og:image', image, 'property');
+	let favicon = document.head.querySelector('link[rel="icon"]');
+	if (!favicon) {
+		favicon = document.createElement('link');
+		favicon.rel = 'icon';
+		document.head.append(favicon);
+	}
+	favicon.href = site.value.faviconUrl || '/favicon.svg';
 }
 
 async function loadSite() {
@@ -537,7 +561,123 @@ async function uploadCover(event) {
 
 function openSettings() {
 	Object.assign(siteDraft, savedSite.value);
+	aiSettingsError.value = '';
+	aiSettingsNotice.value = '';
 	settingsOpen.value = true;
+	if (isAdmin.value) loadAiSettings();
+}
+
+async function loadAiSettings() {
+	try {
+		const settings = await api('/ai/settings');
+		Object.assign(aiConfig, settings);
+		await checkAiStatus();
+	} catch (error) {
+		aiSettingsError.value = error.message;
+	}
+}
+
+function changeAiProvider() {
+	const provider = aiConfig.providers.find((item) => item.id === aiConfig.provider);
+	if (provider?.defaultModel) aiConfig.model = provider.defaultModel;
+}
+
+async function checkAiStatus() {
+	aiStatus.value = { state: 'checking', available: false };
+	try {
+		aiStatus.value = await api('/ai/status');
+	} catch (error) {
+		aiStatus.value = { state: 'unavailable', available: false };
+		aiSettingsError.value = error.message;
+	}
+}
+
+async function saveAiSettings() {
+	aiSettingsBusy.value = true;
+	aiSettingsError.value = '';
+	aiSettingsNotice.value = '';
+	try {
+		const settings = await api('/ai/settings', {
+			method: 'PUT',
+			body: JSON.stringify({ provider: aiConfig.provider, model: aiConfig.model, archiveEnabled: aiConfig.archiveEnabled })
+		});
+		Object.assign(aiConfig, settings);
+		savedSite.value.aiArchiveEnabled = settings.archiveEnabled;
+		aiSettingsNotice.value = currentLocale.value.ai.settingsSaved;
+		await checkAiStatus();
+	} catch (error) {
+		aiSettingsError.value = error.message;
+	} finally {
+		aiSettingsBusy.value = false;
+	}
+}
+
+async function runAiAction() {
+	aiAssistantBusy.value = true;
+	aiAssistantError.value = '';
+	aiSuggestion.value = '';
+	try {
+		const request = aiAction.value === 'translate'
+			? api('/ai/translate', { method: 'POST', body: JSON.stringify({ content: draft.content, targetLanguage: aiTargetLanguage.value }) })
+			: api('/ai/assist', { method: 'POST', body: JSON.stringify({ action: aiAction.value, title: draft.title, content: draft.content, locale: language.value }) });
+		const result = await request;
+		aiSuggestion.value = result.text;
+	} catch (error) {
+		aiAssistantError.value = error.message;
+	} finally {
+		aiAssistantBusy.value = false;
+	}
+}
+
+function useAiSuggestion() {
+	if (!aiSuggestion.value) return;
+	draft.content = aiAction.value === 'continue' && draft.content
+		? `${draft.content.trimEnd()}\n\n${aiSuggestion.value}`
+		: aiSuggestion.value;
+	aiSuggestion.value = '';
+}
+
+async function generateAiMetadata() {
+	aiMetadataBusy.value = true;
+	aiAssistantError.value = '';
+	try {
+		const result = await api('/ai/metadata', { method: 'POST', body: JSON.stringify({ title: draft.title, content: draft.content, locale: language.value }) });
+		if (!draft.title) draft.title = result.title;
+		draft.tags = result.tags.join(', ');
+		draft.seoTitle = result.seoTitle;
+		draft.seoDescription = result.seoDescription || result.summary;
+	} catch (error) {
+		aiAssistantError.value = error.message;
+	} finally {
+		aiMetadataBusy.value = false;
+	}
+}
+
+async function askPublicArchive() {
+	archiveBusy.value = true;
+	archiveAnswer.value = '';
+	archiveCitations.value = [];
+	try {
+		const result = await api('/ai/archive-answer', { method: 'POST', body: JSON.stringify({ question: archiveQuestion.value, locale: language.value }) });
+		archiveAnswer.value = result.answer || currentLocale.value.ai.archiveNoMatch;
+		archiveCitations.value = result.citations || [];
+	} catch (error) {
+		archiveAnswer.value = error.message;
+	} finally {
+		archiveBusy.value = false;
+	}
+}
+
+async function reviewCommentWithAi(comment) {
+	aiCommentReviews[comment.id] = { loading: true, reason: '', category: '' };
+	try {
+		aiCommentReviews[comment.id] = await api(`/ai/comments/${comment.id}/review`, {
+			method: 'POST',
+			body: JSON.stringify({ postTitle: selectedPost.value?.title, locale: language.value })
+		});
+	} catch (error) {
+		aiCommentReviews[comment.id] = { loading: false, reason: error.message, category: 'review' };
+	}
 }
 
 async function saveSettings() {
@@ -659,6 +799,10 @@ function formatMonth(value) {
 						<button class="topic-chip" :class="{ selected: !selectedTag }" @click="selectedTag = ''">{{ site.allNotesLabel }}</button>
 						<button v-for="tag in allTags" :key="tag" class="topic-chip" :class="{ selected: selectedTag === tag }" @click="selectedTag = selectedTag === tag ? '' : tag">{{ tag }}</button>
 					</div>
+					<form v-if="site.aiArchiveEnabled" class="archive-ai-panel" @submit.prevent="askPublicArchive">
+						<label>{{ currentLocale.ai.askHeading }}<span class="archive-ai-input"><input v-model="archiveQuestion" :placeholder="currentLocale.ai.askPlaceholder" maxlength="500" required /><button class="outline-button compact-action" :disabled="archiveBusy">{{ archiveBusy ? currentLocale.ai.generating : currentLocale.ai.askAction }}</button></span></label>
+						<div v-if="archiveAnswer" class="archive-ai-answer"><strong>{{ currentLocale.ai.answerHeading }}</strong><p>{{ archiveAnswer }}</p><div v-if="archiveCitations.length" class="archive-ai-citations"><button v-for="citation in archiveCitations" :key="citation.id" type="button" class="text-action" @click="readPost(posts.find((post) => post.id === citation.id))">{{ citation.title }} ↗</button></div></div>
+					</form>
 
 					<div v-if="visiblePosts.length" class="entry-grid">
 						<article v-for="(post, index) in visiblePosts" :key="post.id" class="entry-card" :class="{ 'entry-card-featured': index === 0 && !searchQuery && !selectedTag && !selectedMonth }">
@@ -735,7 +879,7 @@ function formatMonth(value) {
 				<section v-if="isPublicEntry(selectedPost)" class="comments-section" aria-labelledby="comments-title">
 					<h2 id="comments-title">{{ site.commentsLabel }} <span>{{ comments.filter((comment) => comment.status === 'approved' || isAdmin).length }}</span></h2>
 					<p v-if="!comments.length" class="no-comments">{{ site.noCommentsLabel }}</p>
-					<ol v-else class="comment-list"><li v-for="comment in comments" :key="comment.id"><div class="comment-meta"><strong>{{ comment.name }}</strong><time :datetime="comment.createdAt">{{ formatDate(comment.createdAt.slice(0, 10)) }}</time><span v-if="comment.status === 'pending'" class="private-badge">{{ site.commentPendingLabel }}</span></div><p>{{ comment.content }}</p><div v-if="isAdmin && comment.status === 'pending'" class="comment-moderation"><button class="text-action" @click="moderateComment(comment, 'approved')">{{ site.approveLabel }}</button><button class="delete-button" @click="moderateComment(comment, 'rejected')">{{ site.rejectLabel }}</button></div></li></ol>
+					<ol v-else class="comment-list"><li v-for="comment in comments" :key="comment.id"><div class="comment-meta"><strong>{{ comment.name }}</strong><time :datetime="comment.createdAt">{{ formatDate(comment.createdAt.slice(0, 10)) }}</time><span v-if="comment.status === 'pending'" class="private-badge">{{ site.commentPendingLabel }}</span></div><p>{{ comment.content }}</p><div v-if="isAdmin && comment.status === 'pending'" class="comment-moderation"><button class="text-action" @click="moderateComment(comment, 'approved')">{{ site.approveLabel }}</button><button class="delete-button" @click="moderateComment(comment, 'rejected')">{{ site.rejectLabel }}</button><button class="text-action" :disabled="aiCommentReviews[comment.id]?.loading" @click="reviewCommentWithAi(comment)">{{ aiCommentReviews[comment.id]?.loading ? currentLocale.ai.commentReviewing : currentLocale.ai.commentReviewAction }}</button><p v-if="aiCommentReviews[comment.id]?.reason" class="ai-comment-review"><strong>{{ currentLocale.ai.commentRecommendation }}: {{ currentLocale.ai.recommendations[aiCommentReviews[comment.id].category] }}</strong> · {{ aiCommentReviews[comment.id].reason }}</p></div></li></ol>
 					<form class="comment-form" @submit.prevent="submitComment"><label>{{ site.commentNameLabel }}<input v-model="commentDraft.name" maxlength="60" required /></label><label>{{ site.commentContentLabel }}<textarea v-model="commentDraft.content" rows="3" maxlength="2000" required /></label><label class="honeypot-field" aria-hidden="true">{{ currentLocale.ui.honeypotLabel }}<input v-model="commentDraft.website" tabindex="-1" autocomplete="off" /></label><div class="comment-form-footer"><small>{{ site.commentReviewNote }}</small><button class="primary-button" type="submit">{{ site.commentSubmitLabel }}</button></div><p v-if="commentNotice" class="form-note">{{ commentNotice }}</p></form>
 				</section>
 				<div v-if="canEditPost(selectedPost)" class="post-admin-actions"><button class="outline-button" @click="openEditor(selectedPost)">✎ {{ site.editPostLabel }}</button></div>
@@ -780,10 +924,22 @@ function formatMonth(value) {
 						</div>
 						<label v-if="draft.status === 'scheduled'">{{ site.scheduleLabel }}<input v-model="draft.scheduledAt" type="datetime-local" required /></label>
 						<div class="full-editor-cover"><label>{{ site.coverLabel }}</label><div v-if="draft.coverImage" class="cover-preview"><img :src="draft.coverImage" :alt="draft.title || site.coverLabel" /><button class="text-action" type="button" @click="draft.coverImage = ''">{{ site.removeImageLabel }}</button></div><p v-else class="cover-empty">{{ site.uploadHint }}</p><div class="upload-row"><label class="upload-button">{{ site.chooseImageLabel }}<input class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="uploadCover" /></label></div></div>
-						<details class="seo-editor"><summary>{{ site.seoPreviewLabel }}</summary><label>{{ site.seoTitleLabel }}<input v-model="draft.seoTitle" maxlength="180" :placeholder="draft.title || site.titlePlaceholder" /></label><label>{{ site.seoDescriptionLabel }}<textarea v-model="draft.seoDescription" rows="2" maxlength="300" :placeholder="postSummary(draft.content)" /></label></details>
+						<details class="seo-editor"><summary>{{ site.seoPreviewLabel }}</summary><button class="text-action" type="button" :disabled="aiMetadataBusy" @click="generateAiMetadata">{{ aiMetadataBusy ? currentLocale.ai.metadataGenerating : currentLocale.ai.metadataAction }}</button><label>{{ site.seoTitleLabel }}<input v-model="draft.seoTitle" maxlength="180" :placeholder="draft.title || site.titlePlaceholder" /></label><label>{{ site.seoDescriptionLabel }}<textarea v-model="draft.seoDescription" rows="2" maxlength="300" :placeholder="postSummary(draft.content)" /></label></details>
 						<details v-if="editingId" class="revision-panel"><summary>{{ site.revisionsLabel }} · {{ revisions.length }}</summary><p v-if="!revisions.length">{{ site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="restoreRevision(revision)">{{ site.restoreLabel }}</button></li></ol></details>
 					</aside>
 					<section class="editor-writing-area">
+						<section v-if="admin" class="ai-writing-tools">
+							<div class="ai-tools-row">
+								<strong>{{ currentLocale.ai.editorHeading }}</strong>
+								<label>{{ currentLocale.ai.actionLabel }}<select v-model="aiAction"><option v-for="(label, action) in currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select></label>
+								<label v-if="aiAction === 'translate'">{{ currentLocale.ai.targetLanguage }}<select v-model="aiTargetLanguage"><option value="en">{{ currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ currentLocale.ui.languageKoreanName }}</option></select></label>
+								<button class="outline-button compact-action" type="button" :disabled="aiAssistantBusy" @click="runAiAction">{{ aiAssistantBusy ? currentLocale.ai.generating : currentLocale.ai.generate }}</button>
+							</div>
+							<p class="ai-settings-hint">{{ currentLocale.ai.draftPrivacyNote }}</p>
+							<label v-if="aiSuggestion" class="ai-suggestion-field">{{ currentLocale.ai.suggestionLabel }}<textarea v-model="aiSuggestion" rows="5" /></label>
+							<button v-if="aiSuggestion" class="text-action" type="button" @click="useAiSuggestion">{{ currentLocale.ai.useSuggestion }}</button>
+							<p v-if="aiAssistantError" class="form-error">{{ aiAssistantError }}</p>
+						</section>
 						<MdxEditor v-model="draft.content" :placeholder="site.markdownPlaceholder" :locale="language" />
 					</section>
 				</div>
@@ -796,8 +952,22 @@ function formatMonth(value) {
 			<section class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
 				<header class="editor-header"><div><p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.settingsLabel }}</p><h2 id="settings-title">{{ site.settingsLabel }}</h2></div><button class="dialog-close" :aria-label="currentLocale.ui.closeSettingsLabel" @click="settingsOpen = false">×</button></header>
 				<p class="dialog-note settings-note">{{ site.settingsNote }}</p>
+				<section class="ai-settings-panel">
+					<h3>{{ currentLocale.ai.settingsHeading }}</h3>
+					<p class="ai-settings-description">{{ currentLocale.ai.settingsDescription }}</p>
+					<div class="ai-settings-grid">
+						<label>{{ currentLocale.ai.providerLabel }}<select v-model="aiConfig.provider" @change="changeAiProvider"><option v-for="provider in aiConfig.providers" :key="provider.id" :value="provider.id" :disabled="!provider.configured">{{ currentLocale.ai.providers[provider.id] }}{{ provider.configured ? '' : ' · —' }}</option></select></label>
+						<label>{{ currentLocale.ai.modelLabel }}<input v-model="aiConfig.model" maxlength="120" /></label>
+					</div>
+					<label class="ai-archive-toggle"><input v-model="aiConfig.archiveEnabled" type="checkbox" />{{ currentLocale.ai.archiveToggle }}</label>
+					<p class="ai-settings-description">{{ currentLocale.ai.archiveDescription }}</p>
+					<p class="ai-settings-hint">{{ currentLocale.ai.apiKeyHint }}</p>
+					<div class="ai-settings-actions"><span>{{ currentLocale.ai.statusLabel }}: {{ currentLocale.ai.status[aiStatus.state] || aiStatus.state }}</span><button class="outline-button compact-action" type="button" @click="checkAiStatus">{{ currentLocale.ai.checkStatus }}</button><button class="primary-button compact-action" type="button" :disabled="aiSettingsBusy" @click="saveAiSettings">{{ aiSettingsBusy ? site.savingLabel : currentLocale.ai.saveSettings }}</button></div>
+					<p v-if="aiSettingsError" class="form-error">{{ aiSettingsError }}</p>
+					<p v-if="aiSettingsNotice" class="form-note">{{ aiSettingsNotice }}</p>
+				</section>
 				<form @submit.prevent="saveSettings">
-					<section v-for="group in siteFields" :key="group.heading" class="settings-group"><h3>{{ fieldGroupHeading(group.heading) }}</h3><div class="settings-grid"><label v-for="key in group.keys" :key="key">{{ localizedFieldLabels[key] }}<input v-model="siteDraft[key]" /></label></div></section>
+					<section v-for="group in siteFields" :key="group.heading" class="settings-group"><h3>{{ fieldGroupHeading(group.heading) }}</h3><div class="settings-grid"><label v-for="key in group.keys" :key="key">{{ localizedFieldLabels[key] }}<input v-model="siteDraft[key]" :disabled="key === 'blogName' && siteNameManagedByEnv" /><small v-if="key === 'blogName' && siteNameManagedByEnv" class="site-name-env-hint">{{ currentLocale.ui.siteNameManagedHint }}</small></label></div></section>
 					<div class="editor-actions settings-actions"><button type="button" class="quiet-button" @click="settingsOpen = false">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
 				</form>
 			</section>

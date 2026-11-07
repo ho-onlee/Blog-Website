@@ -1,0 +1,162 @@
+const providerDefinitions = [
+	{ id: 'ollama', envKey: null, label: 'Ollama' },
+	{ id: 'openai', envKey: 'OPENAI_API_KEY', label: 'OpenAI' },
+	{ id: 'anthropic', envKey: 'ANTHROPIC_API_KEY', label: 'Anthropic' },
+	{ id: 'gemini', envKey: 'GEMINI_API_KEY', label: 'Google Gemini' }
+];
+
+const defaultModels = {
+	ollama: 'qwen2.5:3b',
+	openai: 'gpt-4o-mini',
+	anthropic: 'claude-3-5-haiku-latest',
+	gemini: 'gemini-2.0-flash'
+};
+
+function getProvider(providerId) {
+	return providerDefinitions.find((provider) => provider.id === providerId);
+}
+
+function getDefaultModel(providerId) {
+	return process.env[`${providerId.toUpperCase()}_MODEL`] || process.env.AI_MODEL || defaultModels[providerId];
+}
+
+function getSettings(site = {}) {
+	const configuredProvider = site.aiProvider || process.env.AI_PROVIDER || 'ollama';
+	const provider = getProvider(configuredProvider) ? configuredProvider : 'ollama';
+	const model = typeof site.aiModel === 'string' && site.aiModel.trim()
+		? site.aiModel.trim()
+		: getDefaultModel(provider);
+	return { provider, model };
+}
+
+function getProviderOptions() {
+	return providerDefinitions.map((provider) => ({
+		id: provider.id,
+		configured: provider.envKey ? Boolean(process.env[provider.envKey]) : true,
+		defaultModel: getDefaultModel(provider.id)
+	}));
+}
+
+function validateSettings(providerId, model) {
+	const provider = getProvider(providerId);
+	if (!provider) throw new Error('Unsupported AI provider.');
+	if (provider.envKey && !process.env[provider.envKey]) {
+		throw new Error(`Configure ${provider.envKey} in the server environment before selecting this provider.`);
+	}
+	if (typeof model !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9._:/-]{0,119}$/.test(model)) {
+		throw new Error('Enter a valid model name.');
+	}
+}
+
+function ollamaBaseUrl() {
+	return (process.env.AI_BASE_URL || 'http://localhost:11434').replace(/\/$/, '');
+}
+
+function providerKey(providerId) {
+	return process.env[getProvider(providerId)?.envKey] || '';
+}
+
+function providerModelUrl(providerId) {
+	if (providerId === 'openai') return `${(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')}/models`;
+	if (providerId === 'anthropic') return 'https://api.anthropic.com/v1/models';
+	if (providerId === 'gemini') return 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=100';
+	return `${ollamaBaseUrl()}/api/tags`;
+}
+
+function providerHeaders(providerId) {
+	const key = providerKey(providerId);
+	if (providerId === 'openai') return { Authorization: `Bearer ${key}` };
+	if (providerId === 'anthropic') return { 'x-api-key': key, 'anthropic-version': '2023-06-01' };
+	if (providerId === 'gemini') return { 'x-goog-api-key': key };
+	return {};
+}
+
+async function requestJson(url, options = {}) {
+	let response;
+	const timeoutMs = options.timeoutMs || 8000;
+	const fetchOptions = { ...options };
+	delete fetchOptions.timeoutMs;
+	try {
+		response = await fetch(url, { ...fetchOptions, signal: fetchOptions.signal || AbortSignal.timeout(timeoutMs) });
+	} catch {
+		throw new Error('The AI provider could not be reached.');
+	}
+	const payload = await response.json().catch(() => ({}));
+	if (!response.ok) throw new Error(`The AI provider returned HTTP ${response.status}.`);
+	return payload;
+}
+
+function modelIsListed(providerId, payload, model) {
+	if (providerId === 'ollama') return (payload.models || []).some((item) => item.name === model || item.model === model);
+	if (providerId === 'openai') return (payload.data || []).some((item) => item.id === model);
+	if (providerId === 'anthropic') return (payload.data || []).some((item) => item.id === model);
+	return (payload.models || []).some((item) => item.name === `models/${model}` || item.name === model);
+}
+
+async function checkAvailability(settings) {
+	const provider = getProvider(settings.provider);
+	if (provider.envKey && !process.env[provider.envKey]) {
+		return { available: false, state: 'not_configured' };
+	}
+	try {
+		const payload = await requestJson(providerModelUrl(settings.provider), { headers: providerHeaders(settings.provider) });
+		if (!modelIsListed(settings.provider, payload, settings.model)) {
+			return { available: false, state: 'model_missing' };
+		}
+		return { available: true, state: 'ready' };
+	} catch {
+		return { available: false, state: 'unavailable' };
+	}
+}
+
+async function generateText(settings, systemPrompt, userPrompt, options = {}) {
+	const { provider, model } = settings;
+	const maxTokens = options.maxTokens || 1600;
+	let url;
+	let body;
+	const headers = { 'Content-Type': 'application/json', ...providerHeaders(provider) };
+
+	if (provider === 'ollama') {
+		url = `${ollamaBaseUrl()}/api/chat`;
+		body = {
+			model,
+			stream: false,
+			messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+			options: { temperature: options.temperature ?? 0.3, num_predict: maxTokens }
+		};
+	} else if (provider === 'openai') {
+		url = `${(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')}/chat/completions`;
+		body = {
+			model,
+			max_tokens: maxTokens,
+			temperature: options.temperature ?? 0.3,
+			messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }]
+		};
+	} else if (provider === 'anthropic') {
+		url = 'https://api.anthropic.com/v1/messages';
+		body = { model, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] };
+	} else {
+		url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+		body = {
+			systemInstruction: { parts: [{ text: systemPrompt }] },
+			contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+			generationConfig: { temperature: options.temperature ?? 0.3, maxOutputTokens: maxTokens }
+		};
+	}
+
+	const payload = await requestJson(url, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify(body),
+		timeoutMs: Number(process.env.AI_REQUEST_TIMEOUT_MS) || 120000
+	});
+	let text = '';
+	if (provider === 'ollama') text = payload.message?.content || '';
+	else if (provider === 'openai') text = payload.choices?.[0]?.message?.content || '';
+	else if (provider === 'anthropic') text = (payload.content || []).filter((item) => item.type === 'text').map((item) => item.text).join('\n');
+	else text = (payload.candidates?.[0]?.content?.parts || []).map((part) => part.text || '').join('\n');
+	if (!text.trim()) throw new Error('The AI provider returned an empty response.');
+	return text.trim();
+}
+
+module.exports = { checkAvailability, generateText, getProviderOptions, getSettings, validateSettings };
