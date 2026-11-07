@@ -11,7 +11,7 @@ services:
       DB_NAME: ${DB_NAME:-site.sqlite}
       SITE_NAME: ${SITE_NAME:-}
       FAVICON_URL: ${FAVICON_URL:-/favicon.svg}
-      SIGNUP_CODE: ${SIGNUP_CODE:?Set SIGNUP_CODE in .env to a random secret of at least 32 characters}
+      SIGNUP_CODE: ${SIGNUP_CODE:?Set SIGNUP_CODE in .env}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       BACKUP_DIR: /backups
       AI_PROVIDER: ${AI_PROVIDER:-ollama}

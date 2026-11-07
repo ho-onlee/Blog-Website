@@ -915,8 +915,8 @@ app.use((error, request, response, next) => {
 });
 
 async function start() {
-	if (process.env.NODE_ENV === 'production' && Buffer.byteLength(process.env.SIGNUP_CODE || '', 'utf8') < 32) {
-		throw new Error('Production requires SIGNUP_CODE to contain at least 32 bytes.');
+	if (process.env.NODE_ENV === 'production' && !process.env.SIGNUP_CODE?.trim()) {
+		throw new Error('Production requires SIGNUP_CODE to be set.');
 	}
 	await initializeDatabase(dataDir);
 	await fs.mkdir(dataDir, { recursive: true });
