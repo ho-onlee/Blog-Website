@@ -52,10 +52,10 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 
 	- `SIGNUP_CODE`: a unique random value of at least 32 characters.
 	- `PUBLIC_URL`: optional canonical public HTTPS URL, such as `https://blog.example.com`; if unset, RSS and sitemap use forwarded request host/protocol.
-	- `DATA_HOST_PATH`: the absolute data directory on the Docker host.
+	- `DATA_HOST_PATH`: optional absolute data directory; defaults to `/opt/website/data`.
 	- `DB_NAME`: SQLite filename in the data directory; defaults to `site.sqlite`.
-	- `UPLOADS_HOST_PATH`: the absolute uploads directory on the Docker host.
-	- `BACKUP_HOST_PATH`: the absolute backup directory on the Docker host, preferably on separate storage.
+	- `UPLOADS_HOST_PATH`: optional absolute uploads directory; defaults to `/opt/website/uploads`.
+	- `BACKUP_HOST_PATH`: optional absolute backup directory; defaults to `/opt/website/backups`, preferably on separate storage.
 	- `WEB_PORT`: optional host port for the HTTP web container; defaults to `8080`.
 	- `SITE_NAME`: optional site-name override; the fresh-install fallback is `website`.
 	- `FAVICON_URL`: optional favicon path or absolute URL; defaults to `/favicon.svg`.

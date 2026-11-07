@@ -27,9 +27,9 @@ services:
       AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-20000}
       TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}
     volumes:
-      - "${DATA_HOST_PATH:?Set an absolute persistent data directory on the Docker host}:/app/data"
-      - "${UPLOADS_HOST_PATH:?Set an absolute persistent uploads directory on the Docker host}:/app/uploads"
-      - "${BACKUP_HOST_PATH:?Set a durable backup directory on the Docker host}:/backups"
+      - "${DATA_HOST_PATH:-/opt/website/data}:/app/data"
+      - "${UPLOADS_HOST_PATH:-/opt/website/uploads}:/app/uploads"
+      - "${BACKUP_HOST_PATH:-/opt/website/backups}:/backups"
     expose:
       - "3001"
     restart: unless-stopped
