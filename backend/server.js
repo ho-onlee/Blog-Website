@@ -46,6 +46,7 @@ const defaultSite = {
 	uploadingLabel: '이미지 업로드 중…',
 	uploadHint: '이미지 파일 · 최대 5MB',
 	chooseImageLabel: '이미지 선택',
+	removeImageLabel: '이미지 제거',
 	titlePlaceholder: '글 제목을 입력하세요',
 	tagsPlaceholder: '기록, 책, 일상',
 	markdownPlaceholder: '여기에 글을 작성하세요…',

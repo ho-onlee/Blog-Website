@@ -14,7 +14,7 @@ const defaultSite = {
 	welcomeLabel: '다시 오셨네요', adminAccessLabel: '관리자 로그인', loginNote: '계정에 로그인해 글을 관리하세요.',
 	registrationNote: '초대 코드가 있어야 작가 계정을 만들 수 있습니다.',
 	registerPrompt: '계정이 없나요? 초대 코드로 가입하세요.', loginPrompt: '이미 계정이 있나요? 로그인하세요.',
-	deleteConfirm: '이 글을 삭제할까요? 삭제하면 되돌릴 수 없습니다.', uploadingLabel: '이미지 업로드 중…', uploadHint: '이미지 파일 · 최대 5MB', chooseImageLabel: '이미지 선택',
+	deleteConfirm: '이 글을 삭제할까요? 삭제하면 되돌릴 수 없습니다.', uploadingLabel: '이미지 업로드 중…', uploadHint: '이미지 파일 · 최대 5MB', chooseImageLabel: '이미지 선택', removeImageLabel: '이미지 제거',
 	titlePlaceholder: '글 제목을 입력하세요',
 	tagsPlaceholder: '기록, 책, 일상', markdownPlaceholder: '여기에 글을 작성하세요…',
 	visibilityHint: '공개가 기본 설정입니다. 비공개 글은 관리자만 볼 수 있습니다.',
@@ -86,7 +86,7 @@ const siteFields = [
 	{ heading: '메뉴와 동작', keys: ['homeLabel', 'aboutLabel', 'signInLabel', 'adminLabel', 'createLabel', 'settingsLabel', 'logoutLabel', 'backLabel'] },
 	{ heading: '글 목록', keys: ['heroEyebrow', 'issueLabel', 'issueNumber', 'volumeLabel', 'establishedLabel', 'journalLabel', 'allNotesLabel', 'latestLabel', 'searchPlaceholder', 'emptyLabel', 'noResultsLabel', 'readMoreLabel', 'privateLabel'] },
 	{ heading: '소개 페이지', keys: ['aboutKicker', 'aboutHeading', 'aboutBody'] },
-				{ heading: '글 편집과 계정', keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'contentLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'visibilityHint', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel'] },
+				{ heading: '글 편집과 계정', keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'contentLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'visibilityHint', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel'] },
 				{ heading: '작가와 관리자', keys: ['profileLabel', 'profileHeading', 'displayNameLabel', 'bioLabel', 'profileSaveLabel', 'managePostsLabel', 'membersLabel', 'analyticsLabel', 'memberRoleLabel', 'adminRoleLabel', 'authorRoleLabel', 'postCountLabel', 'memberJoinedLabel', 'manageHeading', 'featuredLabel', 'featurePostLabel', 'unfeaturePostLabel', 'relatedPostsLabel', 'viewsLabel', 'popularPostsLabel', 'noAnalyticsLabel', 'authorPostsLabel', 'memberUpdatedLabel', 'profileUpdatedLabel'] }
 ];
 
@@ -104,7 +104,7 @@ const siteFieldLabels = {
 	registerPrompt: '가입 전환 버튼', loginPrompt: '로그인 전환 버튼', uploadingLabel: '업로드 중 문구', uploadHint: '업로드 안내',
 	titlePlaceholder: '제목 입력 안내', tagsPlaceholder: '주제 입력 안내', markdownPlaceholder: '본문 입력 안내',
 	visibilityHint: '공개 설정 안내', settingsNote: '설정 안내', deleteConfirm: '삭제 확인 문구', savingLabel: '저장 중 문구',
-	waitingLabel: '대기 중 문구', copyrightLabel: '저작권 표시', editPostLabel: '글 수정 표시', newPostLabel: '새 글 작성 표시', chooseImageLabel: '이미지 선택 버튼',
+	waitingLabel: '대기 중 문구', copyrightLabel: '저작권 표시', editPostLabel: '글 수정 표시', newPostLabel: '새 글 작성 표시', chooseImageLabel: '이미지 선택 버튼', removeImageLabel: '이미지 제거 버튼',
 	draftLabel: '초안 옵션', scheduledLabel: '예약 옵션', publishedLabel: '게시 옵션', statusLabel: '게시 상태 입력명', scheduleLabel: '예약 시간 입력명',
 	seoTitleLabel: '검색 제목 입력명', seoDescriptionLabel: '검색 설명 입력명', seoPreviewLabel: '검색 미리보기 제목', autoSaveLabel: '자동 저장 중 문구', autoSavedLabel: '자동 저장 완료 문구',
 	revisionsLabel: '수정 이력 제목', restoreLabel: '이력 복원 버튼', restoreConfirm: '복원 확인 문구', noRevisionsLabel: '이력 없음 문구',
@@ -123,6 +123,7 @@ const siteFieldLabels = {
 
 const selectedPost = computed(() => posts.value.find((post) => post.id === selectedPostId.value));
 const isAdmin = computed(() => admin.value?.role === 'admin');
+const authoredPostCount = computed(() => posts.value.filter((post) => post.authorId === admin.value?.id).length);
 const relatedPosts = computed(() => {
 	if (!selectedPost.value) return [];
 	const tags = new Set(selectedPost.value.tags || []);
@@ -633,7 +634,7 @@ function formatMonth(value) {
 				</template>
 				<button v-else class="quiet-button login-trigger" @click="openAuth('login')">{{ site.signInLabel }} <span aria-hidden="true">↗</span></button>
 			</div>
-			<div v-if="admin" class="admin-indicator"><span></span>{{ isAdmin ? site.adminLabel : site.authorRoleLabel }}</div>
+			<div v-if="admin" class="admin-indicator"><span></span>{{ site.postCountLabel }} {{ authoredPostCount }} · {{ isAdmin ? site.adminLabel : site.authorRoleLabel }}</div>
 		</header>
 
 		<main>
@@ -782,21 +783,25 @@ function formatMonth(value) {
 				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ editingId ? site.editPostLabel : site.newPostLabel }}</p>
 			</div>
 			<form class="full-editor-form" @submit.prevent="savePost()">
-				<div class="full-editor-fields">
-					<label>{{ site.titleLabel }}<input v-model="draft.title" required maxlength="180" :placeholder="site.titlePlaceholder" /></label>
-					<div class="full-editor-row">
+				<label class="editor-title-field">{{ site.titleLabel }}<input class="editor-title-input" v-model="draft.title" required maxlength="180" :placeholder="site.titlePlaceholder" /></label>
+				<div class="editor-workspace">
+					<aside class="editor-settings-rail">
+						<div class="editor-rail-heading"><span>SEOHAKRU / {{ editingId ? site.editPostLabel : site.newPostLabel }}</span><strong>{{ site.statusLabel }}</strong></div>
 						<label>{{ site.tagsLabel }}<input v-model="draft.tags" :placeholder="site.tagsPlaceholder" /></label>
-						<label>{{ site.visibilityLabel }}<select v-model="draft.visibility"><option value="public">{{ site.publicLabel }}</option><option value="private">{{ site.privateOptionLabel }}</option></select></label>
-						<label>{{ site.statusLabel }}<select v-model="draft.status"><option value="published">{{ site.publishedLabel }}</option><option value="draft">{{ site.draftLabel }}</option><option value="scheduled">{{ site.scheduledLabel }}</option></select></label>
-					</div>
-					<label v-if="draft.status === 'scheduled'">{{ site.scheduleLabel }}<input v-model="draft.scheduledAt" type="datetime-local" required /></label>
-						<div class="full-editor-cover"><label>{{ site.coverLabel }}</label><div class="upload-row"><label class="upload-button">{{ site.chooseImageLabel }}<input class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="uploadCover" /></label><small>{{ uploadBusy ? site.uploadingLabel : site.uploadHint }}</small></div></div>
+						<div class="editor-select-row">
+							<label>{{ site.visibilityLabel }}<select v-model="draft.visibility"><option value="public">{{ site.publicLabel }}</option><option value="private">{{ site.privateOptionLabel }}</option></select></label>
+							<label>{{ site.statusLabel }}<select v-model="draft.status"><option value="published">{{ site.publishedLabel }}</option><option value="draft">{{ site.draftLabel }}</option><option value="scheduled">{{ site.scheduledLabel }}</option></select></label>
+						</div>
+						<label v-if="draft.status === 'scheduled'">{{ site.scheduleLabel }}<input v-model="draft.scheduledAt" type="datetime-local" required /></label>
+						<div class="full-editor-cover"><label>{{ site.coverLabel }}</label><div v-if="draft.coverImage" class="cover-preview"><img :src="draft.coverImage" :alt="draft.title || site.coverLabel" /><button class="text-action" type="button" @click="draft.coverImage = ''">{{ site.removeImageLabel }}</button></div><p v-else class="cover-empty">{{ site.uploadHint }}</p><div class="upload-row"><label class="upload-button">{{ site.chooseImageLabel }}<input class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="uploadCover" /></label></div></div>
+						<details class="seo-editor"><summary>{{ site.seoPreviewLabel }}</summary><label>{{ site.seoTitleLabel }}<input v-model="draft.seoTitle" maxlength="180" :placeholder="draft.title || site.titlePlaceholder" /></label><label>{{ site.seoDescriptionLabel }}<textarea v-model="draft.seoDescription" rows="2" maxlength="300" :placeholder="postSummary(draft.content)" /></label></details>
+						<details v-if="editingId" class="revision-panel"><summary>{{ site.revisionsLabel }} · {{ revisions.length }}</summary><p v-if="!revisions.length">{{ site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="restoreRevision(revision)">{{ site.restoreLabel }}</button></li></ol></details>
+					</aside>
+					<section class="editor-writing-area">
+						<header class="mdx-editor-heading"><div><span>{{ site.contentLabel }}</span><small>{{ site.visibilityHint }}</small></div><p class="autosave-status" aria-live="polite">{{ autosaveStatus }}</p></header>
+						<MdxEditor v-model="draft.content" :placeholder="site.markdownPlaceholder" />
+					</section>
 				</div>
-				<div class="mdx-editor-heading"><span>{{ site.contentLabel }}</span><small>{{ site.visibilityHint }}</small></div>
-				<p class="autosave-status" aria-live="polite">{{ autosaveStatus }}</p>
-				<MdxEditor v-model="draft.content" :placeholder="site.markdownPlaceholder" />
-				<details class="seo-editor"><summary>{{ site.seoPreviewLabel }}</summary><label>{{ site.seoTitleLabel }}<input v-model="draft.seoTitle" maxlength="180" :placeholder="draft.title || site.titlePlaceholder" /></label><label>{{ site.seoDescriptionLabel }}<textarea v-model="draft.seoDescription" rows="2" maxlength="300" :placeholder="postSummary(draft.content)" /></label></details>
-				<details v-if="editingId" class="revision-panel"><summary>{{ site.revisionsLabel }} · {{ revisions.length }}</summary><p v-if="!revisions.length">{{ site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="restoreRevision(revision)">{{ site.restoreLabel }}</button></li></ol></details>
 				<p v-if="editorError" class="form-error">{{ editorError }}</p>
 				<div class="full-editor-actions"><button v-if="editingId" class="delete-button" type="button" @click="deletePost">{{ site.deleteLabel }}</button><button class="outline-button" type="button" :disabled="busy" @click="savePost('draft')">{{ site.draftLabel }}</button><span class="editor-action-spacer"></span><button class="quiet-button" type="button" @click="cancelEditor">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : draft.status === 'scheduled' ? site.scheduledLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
 			</form>
