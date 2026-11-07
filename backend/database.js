@@ -7,7 +7,7 @@ let database;
 
 async function initializeDatabase(dataDir) {
 	await fs.mkdir(dataDir, { recursive: true });
-	const databasePath = process.env.DB_PATH ? path.resolve(process.env.DB_PATH) : path.join(dataDir, 'seohakru.sqlite');
+	const databasePath = resolveDatabasePath(dataDir);
 	database = new Database(databasePath);
 	database.pragma('journal_mode = WAL');
 	database.exec(`
@@ -99,6 +99,15 @@ async function initializeDatabase(dataDir) {
 	}
 
 	return database;
+}
+
+function resolveDatabasePath(dataDir) {
+	if (process.env.DB_PATH) return path.resolve(process.env.DB_PATH);
+	const databaseName = process.env.DB_NAME || 'site.sqlite';
+	if (databaseName !== path.basename(databaseName) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.sqlite$/i.test(databaseName)) {
+		throw new Error('DB_NAME must be a simple filename ending in .sqlite.');
+	}
+	return path.join(dataDir, databaseName);
 }
 
 function insertDocument(collection, id, position, value) {

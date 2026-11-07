@@ -6,9 +6,13 @@ const Database = require('better-sqlite3');
 const backendDir = path.resolve(__dirname, '..');
 const projectDir = path.resolve(backendDir, '..');
 const dataDir = path.resolve(process.env.DATA_DIR || path.join(backendDir, 'data'));
-const databasePath = path.resolve(process.env.DB_PATH || path.join(dataDir, 'seohakru.sqlite'));
+const databaseName = process.env.DB_NAME || 'site.sqlite';
+if (!process.env.DB_PATH && (databaseName !== path.basename(databaseName) || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.sqlite$/i.test(databaseName))) {
+	throw new Error('DB_NAME must be a simple filename ending in .sqlite.');
+}
+const databasePath = path.resolve(process.env.DB_PATH || path.join(dataDir, databaseName));
 const uploadsDir = path.resolve(process.env.UPLOADS_DIR || path.join(backendDir, 'uploads'));
-const backupRoot = path.resolve(process.argv[2] || process.env.BACKUP_DIR || path.join(os.homedir(), 'Seohakru Backups'));
+const backupRoot = path.resolve(process.argv[2] || process.env.BACKUP_DIR || path.join(os.homedir(), 'Website Backups'));
 
 function isWithin(parent, candidate) {
 	const relativePath = path.relative(parent, candidate);
@@ -24,13 +28,13 @@ async function createBackup() {
 	await fs.mkdir(backupRoot, { recursive: true });
 
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-	const backupPath = path.join(backupRoot, `seohakru-${timestamp}`);
+	const backupPath = path.join(backupRoot, `site-backup-${timestamp}`);
 	const backupUploads = path.join(backupPath, 'uploads');
 	await fs.mkdir(backupUploads, { recursive: true });
 
 	const database = new Database(databasePath, { readonly: true, fileMustExist: true });
 	try {
-		await database.backup(path.join(backupPath, 'seohakru.sqlite'));
+		await database.backup(path.join(backupPath, 'database.sqlite'));
 	} finally {
 		database.close();
 	}

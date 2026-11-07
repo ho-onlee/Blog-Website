@@ -8,6 +8,7 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATA_DIR: /app/data
+      DB_NAME: ${DB_NAME:-site.sqlite}
       SITE_NAME: ${SITE_NAME:-}
       FAVICON_URL: ${FAVICON_URL:-/favicon.svg}
       SIGNUP_CODE: ${SIGNUP_CODE:?Set SIGNUP_CODE in .env to a random secret of at least 32 characters}

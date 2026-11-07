@@ -18,6 +18,8 @@ Post text, author names, tags, and administrator-customized site copy are conten
 
 Requirements: Node.js 22 or later.
 
+Copy `.env.example` to `.env` before starting the API. `DB_NAME` selects the SQLite filename inside `backend/data` (`site.sqlite` for a fresh install); for an existing database, set it to that file's name. `DB_PATH`, if set, takes precedence.
+
 Start the API in one terminal:
 
 ```sh

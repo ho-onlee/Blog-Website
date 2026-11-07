@@ -24,7 +24,7 @@ The public archive Q&A feature is disabled by default; enable it in AI settings 
 
 ## Backups
 
-Compose mounts `HOST_BACKUP_DIR` outside the project into `/backups`; by default it uses a sibling `seohakru-backups` directory. Choose a durable host path in `.env` if needed. Run regular backups from the project directory:
+Compose mounts `HOST_BACKUP_DIR` outside the project into `/backups`; by default it uses a sibling `blog-backups` directory. Choose a durable host path in `.env` if needed. Run regular backups from the project directory:
 
 ```sh
 docker compose exec -T api npm run backup
@@ -33,10 +33,10 @@ docker compose exec -T api npm run backup
 Each backup contains a SQLite online-backup snapshot and a copy of uploaded images. The command prints its timestamped backup directory. To test restoration without changing the live database or uploads:
 
 ```sh
-docker compose exec -T api npm run backup:verify -- /backups/seohakru-<timestamp>
+docker compose exec -T api npm run backup:verify -- /backups/site-backup-<timestamp>
 ```
 
-The verification command copies the snapshot to a temporary directory, runs SQLite `integrity_check`, and checks that all upload files copied. Schedule the backup command daily with the host's scheduler, and periodically copy the backup directory to a separate device or storage provider. For an actual recovery, stop the API, restore `seohakru.sqlite` and the `uploads` directory from one snapshot to the mounted data locations, then restart the API.
+The verification command copies the snapshot to a temporary directory, runs SQLite `integrity_check`, and checks that all upload files copied. It also accepts legacy snapshots containing `seohakru.sqlite`. Schedule the backup command daily with the host's scheduler, and periodically copy the backup directory to a separate device or storage provider. For recovery, stop the API, restore `database.sqlite` to the data directory using the filename configured by `DB_NAME`, restore the matching `uploads` directory, then restart the API.
 
 ## Portainer Git Stack
 
@@ -45,14 +45,15 @@ This stack targets a Portainer **Docker Standalone** environment. It uses absolu
 The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, branch `main`. Keep this repository private: the initial commit contains `backend/data` account, post, and SQLite files. Ignore rules and current deletions do not remove data from Git history. Portainer can deploy from a private repository; do not make it public unless the history is scrubbed first.
 
 1. Commit and push the Portainer stack file and these instructions to `main`. For a private repository, configure Git credentials in Portainer; do not put a GitHub token in this repository.
-2. On the Docker host, create three writable directories, for example `/opt/seohakru/data`, `/opt/seohakru/uploads`, and `/mnt/backups/seohakru`.
-3. If migrating the existing site, copy `seohakru.sqlite` from a verified backup into the data directory and copy the backup's `uploads` contents into the uploads directory before deploying. Leave the data directory empty for a fresh site.
+2. On the Docker host, create three writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`.
+3. If migrating an existing site, copy its SQLite database file and matching `uploads` contents into the persistent directories before deploying. Set `DB_NAME` to the copied SQLite filename. Leave the data directory empty for a fresh site; `site.sqlite` is the default filename.
 4. In Portainer, choose **Stacks → Add stack → Git Repository**. Set the repository URL above, reference `refs/heads/main`, and Compose path `compose.portainer.yaml`.
 5. Add these stack environment variables in Portainer:
 
 	- `SIGNUP_CODE`: a unique random value of at least 32 characters.
 	- `PUBLIC_URL`: the final public HTTPS URL, such as `https://blog.example.com`.
 	- `DATA_HOST_PATH`: the absolute data directory on the Docker host.
+	- `DB_NAME`: SQLite filename in the data directory; defaults to `site.sqlite`.
 	- `UPLOADS_HOST_PATH`: the absolute uploads directory on the Docker host.
 	- `BACKUP_HOST_PATH`: the absolute backup directory on the Docker host, preferably on separate storage.
 	- `WEB_PORT`: optional host port for the HTTP web container; defaults to `8080`.
@@ -62,7 +63,6 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 	- `AI_MODEL`: optional default model; defaults to `qwen2.5:3b` and is also pulled by the local Ollama service.
 	- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`: optional paid-provider secrets. Only configure providers you intend to use.
 	- `OPENAI_MODEL`, `ANTHROPIC_MODEL`, `GEMINI_MODEL`: optional model defaults for those providers.
-	- `AI_REQUEST_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`: optional request timeout and input-length limits.
 	- `AI_REQUEST_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`: optional request timeout and input-length limits.
 	- `TRUST_PROXY`: optional comma-separated trusted proxy ranges; keep it limited to the Docker/private proxy network.
 

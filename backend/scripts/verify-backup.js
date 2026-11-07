@@ -13,17 +13,28 @@ async function countFiles(directory) {
 	return count;
 }
 
+async function findBackupDatabase(backupPath) {
+	for (const name of ['database.sqlite', 'seohakru.sqlite']) {
+		const candidate = path.join(backupPath, name);
+		try {
+			await fs.access(candidate);
+			return candidate;
+		} catch {}
+	}
+	throw new Error('Backup is missing its SQLite database file.');
+}
+
 async function verifyBackup() {
 	const backupPath = process.argv[2] && path.resolve(process.argv[2]);
 	if (!backupPath) throw new Error('Usage: npm run backup:verify -- <backup-directory>');
 
-	const backupDatabase = path.join(backupPath, 'seohakru.sqlite');
+	const backupDatabase = await findBackupDatabase(backupPath);
 	const backupUploads = path.join(backupPath, 'uploads');
-	await fs.access(backupDatabase);
-	const temporaryRestore = await fs.mkdtemp(path.join(os.tmpdir(), 'seohakru-restore-'));
+	await fs.access(backupUploads);
+	const temporaryRestore = await fs.mkdtemp(path.join(os.tmpdir(), 'site-restore-'));
 	let database;
 	try {
-		const restoredDatabase = path.join(temporaryRestore, 'seohakru.sqlite');
+		const restoredDatabase = path.join(temporaryRestore, 'database.sqlite');
 		const restoredUploads = path.join(temporaryRestore, 'uploads');
 		await fs.copyFile(backupDatabase, restoredDatabase);
 		await fs.cp(backupUploads, restoredUploads, { recursive: true });

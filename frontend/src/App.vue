@@ -5,8 +5,15 @@ import DOMPurify from 'dompurify';
 import { api, clearToken, getToken, saveToken } from './storage.js';
 import englishLocale from './locales/en.json';
 import koreanLocale from './locales/ko.json';
+import SiteHeader from './components/SiteHeader.vue';
+import HomeView from './components/HomeView.vue';
+import ManagementViews from './components/ManagementViews.vue';
+import PostReader from './components/PostReader.vue';
+import AuthDialog from './components/AuthDialog.vue';
+import SiteSettingsDialog from './components/SiteSettingsDialog.vue';
+import { useAiFeatures } from './composables/useAiFeatures.js';
 
-const MdxEditor = defineAsyncComponent(() => import('./components/MdxEditor.vue'));
+const WriterEditor = defineAsyncComponent(() => import('./components/WriterEditor.vue'));
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
 // Keep interface translations in JSON so contributors can edit them without changing Vue code.
 const locales = { en: englishLocale, ko: koreanLocale };
@@ -64,22 +71,6 @@ const revisions = ref([]);
 const comments = ref([]);
 const commentNotice = ref('');
 const shareStatus = ref('');
-const aiConfig = reactive({ provider: 'ollama', model: 'qwen2.5:3b', archiveEnabled: false, providers: [] });
-const aiStatus = ref({ state: 'checking', available: false });
-const aiSettingsError = ref('');
-const aiSettingsNotice = ref('');
-const aiSettingsBusy = ref(false);
-const aiAction = ref('outline');
-const aiTargetLanguage = ref('en');
-const aiSuggestion = ref('');
-const aiAssistantError = ref('');
-const aiAssistantBusy = ref(false);
-const aiMetadataBusy = ref(false);
-const archiveQuestion = ref('');
-const archiveAnswer = ref('');
-const archiveCitations = ref([]);
-const archiveBusy = ref(false);
-const aiCommentReviews = reactive({});
 const commentDraft = reactive({ name: '', content: '', website: '' });
 const profileDraft = reactive({ displayName: '', bio: '' });
 const authDraft = reactive({ username: '', password: '', inviteCode: '' });
@@ -133,6 +124,14 @@ const siteFields = [
 
 const selectedPost = computed(() => posts.value.find((post) => post.id === selectedPostId.value));
 const isAdmin = computed(() => admin.value?.role === 'admin');
+const aiFeatures = useAiFeatures({ currentLocale, language, savedSite, draft, selectedPost });
+const {
+	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy,
+	aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
+	archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
+	loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
+	useAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
+} = aiFeatures;
 const authoredPostCount = computed(() => posts.value.filter((post) => post.authorId === admin.value?.id).length);
 const relatedPosts = computed(() => {
 	if (!selectedPost.value) return [];
@@ -567,119 +566,6 @@ function openSettings() {
 	if (isAdmin.value) loadAiSettings();
 }
 
-async function loadAiSettings() {
-	try {
-		const settings = await api('/ai/settings');
-		Object.assign(aiConfig, settings);
-		await checkAiStatus();
-	} catch (error) {
-		aiSettingsError.value = error.message;
-	}
-}
-
-function changeAiProvider() {
-	const provider = aiConfig.providers.find((item) => item.id === aiConfig.provider);
-	if (provider?.defaultModel) aiConfig.model = provider.defaultModel;
-}
-
-async function checkAiStatus() {
-	aiStatus.value = { state: 'checking', available: false };
-	try {
-		aiStatus.value = await api('/ai/status');
-	} catch (error) {
-		aiStatus.value = { state: 'unavailable', available: false };
-		aiSettingsError.value = error.message;
-	}
-}
-
-async function saveAiSettings() {
-	aiSettingsBusy.value = true;
-	aiSettingsError.value = '';
-	aiSettingsNotice.value = '';
-	try {
-		const settings = await api('/ai/settings', {
-			method: 'PUT',
-			body: JSON.stringify({ provider: aiConfig.provider, model: aiConfig.model, archiveEnabled: aiConfig.archiveEnabled })
-		});
-		Object.assign(aiConfig, settings);
-		savedSite.value.aiArchiveEnabled = settings.archiveEnabled;
-		aiSettingsNotice.value = currentLocale.value.ai.settingsSaved;
-		await checkAiStatus();
-	} catch (error) {
-		aiSettingsError.value = error.message;
-	} finally {
-		aiSettingsBusy.value = false;
-	}
-}
-
-async function runAiAction() {
-	aiAssistantBusy.value = true;
-	aiAssistantError.value = '';
-	aiSuggestion.value = '';
-	try {
-		const request = aiAction.value === 'translate'
-			? api('/ai/translate', { method: 'POST', body: JSON.stringify({ content: draft.content, targetLanguage: aiTargetLanguage.value }) })
-			: api('/ai/assist', { method: 'POST', body: JSON.stringify({ action: aiAction.value, title: draft.title, content: draft.content, locale: language.value }) });
-		const result = await request;
-		aiSuggestion.value = result.text;
-	} catch (error) {
-		aiAssistantError.value = error.message;
-	} finally {
-		aiAssistantBusy.value = false;
-	}
-}
-
-function useAiSuggestion() {
-	if (!aiSuggestion.value) return;
-	draft.content = aiAction.value === 'continue' && draft.content
-		? `${draft.content.trimEnd()}\n\n${aiSuggestion.value}`
-		: aiSuggestion.value;
-	aiSuggestion.value = '';
-}
-
-async function generateAiMetadata() {
-	aiMetadataBusy.value = true;
-	aiAssistantError.value = '';
-	try {
-		const result = await api('/ai/metadata', { method: 'POST', body: JSON.stringify({ title: draft.title, content: draft.content, locale: language.value }) });
-		if (!draft.title) draft.title = result.title;
-		draft.tags = result.tags.join(', ');
-		draft.seoTitle = result.seoTitle;
-		draft.seoDescription = result.seoDescription || result.summary;
-	} catch (error) {
-		aiAssistantError.value = error.message;
-	} finally {
-		aiMetadataBusy.value = false;
-	}
-}
-
-async function askPublicArchive() {
-	archiveBusy.value = true;
-	archiveAnswer.value = '';
-	archiveCitations.value = [];
-	try {
-		const result = await api('/ai/archive-answer', { method: 'POST', body: JSON.stringify({ question: archiveQuestion.value, locale: language.value }) });
-		archiveAnswer.value = result.answer || currentLocale.value.ai.archiveNoMatch;
-		archiveCitations.value = result.citations || [];
-	} catch (error) {
-		archiveAnswer.value = error.message;
-	} finally {
-		archiveBusy.value = false;
-	}
-}
-
-async function reviewCommentWithAi(comment) {
-	aiCommentReviews[comment.id] = { loading: true, reason: '', category: '' };
-	try {
-		aiCommentReviews[comment.id] = await api(`/ai/comments/${comment.id}/review`, {
-			method: 'POST',
-			body: JSON.stringify({ postTitle: selectedPost.value?.title, locale: language.value })
-		});
-	} catch (error) {
-		aiCommentReviews[comment.id] = { loading: false, reason: error.message, category: 'review' };
-	}
-}
-
 async function saveSettings() {
 	busy.value = true;
 	try {
@@ -750,227 +636,42 @@ function formatMonth(value) {
 	const locale = language.value === 'ko' ? 'ko-KR' : 'en-US';
 	return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(new Date(year, month - 1, 1));
 }
+
+const app = reactive({
+	site, currentLocale, language, theme, themeToggleLabel, admin, isAdmin, authoredPostCount,
+	view, posts, authorPage, members, analytics, selectedPost, relatedPosts, allTags, matchingPosts, visiblePosts, archiveMonths,
+	searchQuery, selectedTag, selectedMonth, postLimit, selectedPostId, comments, commentNotice, commentDraft, shareStatus,
+	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
+	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
+	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
+	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
+	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth,
+	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
+	saveProfile, updateMemberRole, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
+	moderateComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
+	useAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi, isPublicEntry
+});
 </script>
 
 <template>
 	<div class="site-shell">
-		<header class="topbar">
-			<a class="wordmark" href="#home" @click.prevent="goHome">{{ site.blogName }}<span class="wordmark-dot">.</span></a>
-			<div class="top-actions">
-				<select v-model="language" class="language-select" :aria-label="currentLocale.ui.languageLabel"><option value="en">{{ currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ currentLocale.ui.languageKoreanName }}</option></select>
-				<button class="theme-toggle" type="button" :aria-label="themeToggleLabel" :title="themeToggleLabel" :aria-pressed="theme === 'dark'" @click="toggleTheme"><span aria-hidden="true">{{ theme === 'dark' ? '☀' : '☾' }}</span></button>
-				<template v-if="admin">
-					<button class="profile-button" @click="openProfile">{{ admin.displayName || admin.username }}</button>
-					<details v-if="isAdmin" class="admin-menu"><summary>{{ site.manageHeading }}</summary><div class="admin-menu-panel"><button @click="openPostManager(); $event.currentTarget.closest('details').open = false">{{ site.managePostsLabel }}</button><button @click="openMembers(); $event.currentTarget.closest('details').open = false">{{ site.membersLabel }}</button><button @click="openAnalytics(); $event.currentTarget.closest('details').open = false">{{ site.analyticsLabel }}</button><button @click="openSettings(); $event.currentTarget.closest('details').open = false">{{ site.settingsLabel }}</button></div></details>
-					<button class="quiet-button" @click="logout">{{ site.logoutLabel }}</button>
-					<button class="primary-button compact" @click="openEditor()"><span aria-hidden="true">＋</span> {{ site.createLabel }}</button>
-				</template>
-				<button v-else class="quiet-button login-trigger" @click="openAuth('login')">{{ site.signInLabel }} <span aria-hidden="true">↗</span></button>
-			</div>
-			<div v-if="admin" class="admin-indicator"><span></span>{{ site.postCountLabel }} {{ authoredPostCount }} · {{ isAdmin ? site.adminLabel : site.authorRoleLabel }}</div>
-		</header>
+		<SiteHeader :app="app" />
 
 		<main>
-			<section v-if="view === 'home'" class="home-view">
-				<div class="intro-band">
-					<div class="intro-copy">
-						<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.heroEyebrow }}</p>
-						<h1>{{ site.blogName }}<span class="hero-period">.</span></h1>
-						<p class="intro-tagline">{{ site.tagline }}</p>
-					</div>
-					<div class="intro-index" aria-hidden="true"><span>{{ site.volumeLabel }}</span><strong>{{ site.issueNumber }}</strong><i></i><span>{{ site.establishedLabel }}</span></div>
-					<div class="intro-stamp" aria-hidden="true">{{ site.issueLabel }}<br /><b>{{ site.issueNumber }}</b></div>
-				</div>
+			<HomeView v-if="view === 'home'" :app="app" />
 
-				<section class="journal-section" aria-labelledby="latest-heading">
-					<div class="section-heading">
-						<div>
-							<p class="eyebrow section-eyebrow">{{ site.journalLabel }} <span class="heading-dash"></span> {{ String(matchingPosts.length).padStart(2, '0') }}</p>
-							<h2 id="latest-heading">{{ site.latestLabel }}</h2>
-						</div>
-						<label class="search-box">
-							<span class="search-icon" aria-hidden="true">⌕</span>
-							<input v-model="searchQuery" :placeholder="site.searchPlaceholder" :aria-label="currentLocale.ui.searchAriaLabel" />
-							<kbd>/</kbd>
-						</label>
-						<label class="archive-filter"><span>{{ site.archiveLabel }}</span><select v-model="selectedMonth"><option value="">{{ site.allMonthsLabel }}</option><option v-for="month in archiveMonths" :key="month" :value="month">{{ formatMonth(month) }}</option></select></label>
-					</div>
-					<div v-if="allTags.length" class="topic-row" :aria-label="currentLocale.ui.topicFilterAriaLabel">
-						<button class="topic-chip" :class="{ selected: !selectedTag }" @click="selectedTag = ''">{{ site.allNotesLabel }}</button>
-						<button v-for="tag in allTags" :key="tag" class="topic-chip" :class="{ selected: selectedTag === tag }" @click="selectedTag = selectedTag === tag ? '' : tag">{{ tag }}</button>
-					</div>
-					<form v-if="site.aiArchiveEnabled" class="archive-ai-panel" @submit.prevent="askPublicArchive">
-						<label>{{ currentLocale.ai.askHeading }}<span class="archive-ai-input"><input v-model="archiveQuestion" :placeholder="currentLocale.ai.askPlaceholder" maxlength="500" required /><button class="outline-button compact-action" :disabled="archiveBusy">{{ archiveBusy ? currentLocale.ai.generating : currentLocale.ai.askAction }}</button></span></label>
-						<div v-if="archiveAnswer" class="archive-ai-answer"><strong>{{ currentLocale.ai.answerHeading }}</strong><p>{{ archiveAnswer }}</p><div v-if="archiveCitations.length" class="archive-ai-citations"><button v-for="citation in archiveCitations" :key="citation.id" type="button" class="text-action" @click="readPost(posts.find((post) => post.id === citation.id))">{{ citation.title }} ↗</button></div></div>
-					</form>
+			<ManagementViews v-else-if="['profile', 'author', 'members', 'manage-posts', 'analytics'].includes(view)" :app="app" />
 
-					<div v-if="visiblePosts.length" class="entry-grid">
-						<article v-for="(post, index) in visiblePosts" :key="post.id" class="entry-card" :class="{ 'entry-card-featured': index === 0 && !searchQuery && !selectedTag && !selectedMonth }">
-							<button class="card-open" :aria-label="`${site.readMoreLabel}: ${post.title}`" @click="readPost(post)">
-								<div v-if="post.coverImage" class="card-image-wrap"><img class="card-image" :src="post.coverImage" :alt="post.title" loading="lazy" /><span class="image-arrow" aria-hidden="true">↗</span></div>
-								<div v-else class="card-image-wrap card-image-placeholder"><span>{{ site.blogName }}</span><i></i></div>
-								<div class="card-body">
-									<div class="card-meta"><time :datetime="post.date">{{ formatDate(post.date) }}</time><span class="card-author">{{ post.authorName }}</span><span class="reading-time">{{ readingMinutes(post.content) }}{{ site.readingTimeSuffix }}</span><span v-if="admin && post.status === 'draft'" class="private-badge">{{ site.draftLabel }}</span><span v-if="admin && post.status === 'scheduled'" class="private-badge">{{ site.scheduledLabel }}</span><span v-if="post.visibility === 'private'" class="private-badge">{{ site.privateLabel }}</span></div>
-									<h3>{{ post.title }}</h3>
-									<p class="card-excerpt">{{ postSummary(post.content) }}</p>
-									<div class="card-bottom"><span class="card-topics"><span v-for="tag in (post.tags || []).slice(0, 2)" :key="tag">{{ tag }}</span></span><span class="read-link">{{ site.readMoreLabel }} <b aria-hidden="true">↗</b></span></div>
-								</div>
-							</button>
-							<div v-if="admin" class="card-admin-actions"><button v-if="isAdmin" class="card-feature" :aria-label="post.featured ? site.unfeaturePostLabel : site.featurePostLabel" :title="post.featured ? site.unfeaturePostLabel : site.featurePostLabel" @click.stop="toggleFeatured(post)">{{ post.featured ? '★' : '☆' }}</button><button v-if="canEditPost(post)" class="card-edit" :aria-label="`${site.editPostLabel}: ${post.title}`" :title="site.editPostLabel" @click.stop="openEditor(post)">✎</button></div>
-						</article>
-					</div>
-					<div v-else class="empty-state"><span class="empty-mark">✳</span><p>{{ searchQuery || selectedTag || selectedMonth ? site.noResultsLabel : site.emptyLabel }}</p><button v-if="admin && !searchQuery && !selectedTag && !selectedMonth" class="text-action" @click="openEditor()">{{ site.createLabel }} <span aria-hidden="true">↗</span></button></div>
-					<button v-if="matchingPosts.length > visiblePosts.length" class="load-more-button" @click="postLimit += 9">{{ site.loadMoreLabel }} <span aria-hidden="true">＋</span></button>
-				</section>
-			</section>
-
-			<section v-else-if="view === 'profile' && admin" class="profile-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.profileHeading }}</p>
-				<h1>{{ admin.displayName || admin.username }}</h1>
-				<form class="profile-form" @submit.prevent="saveProfile">
-					<label>{{ site.displayNameLabel }}<input v-model="profileDraft.displayName" maxlength="60" required /></label>
-					<label>{{ site.bioLabel }}<textarea v-model="profileDraft.bio" rows="4" maxlength="500" /></label>
-					<p class="profile-username">{{ admin.username }} · {{ admin.role === 'admin' ? site.adminRoleLabel : site.authorRoleLabel }}</p>
-					<button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : site.profileSaveLabel }}</button>
-				</form>
-			</section>
-
-			<section v-else-if="view === 'author' && authorPage" class="author-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.authorPostsLabel }}</p>
-				<h1>{{ authorPage.author.displayName }}</h1>
-				<p v-if="authorPage.author.bio" class="author-bio">{{ authorPage.author.bio }}</p>
-				<div class="entry-grid author-entry-grid"><article v-for="post in authorPage.posts" :key="post.id" class="entry-card"><button class="card-open" @click="readPost(post)"><div v-if="post.coverImage" class="card-image-wrap"><img class="card-image" :src="post.coverImage" :alt="post.title" loading="lazy" /></div><div class="card-body"><div class="card-meta"><time :datetime="post.date">{{ formatDate(post.date) }}</time><span class="reading-time">{{ readingMinutes(post.content) }}{{ site.readingTimeSuffix }}</span></div><h3>{{ post.title }}</h3><p class="card-excerpt">{{ postSummary(post.content) }}</p></div></button></article></div>
-				<p v-if="!authorPage.posts.length" class="no-comments">{{ site.emptyLabel }}</p>
-			</section>
-
-			<section v-else-if="view === 'members' && isAdmin" class="management-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.membersLabel }}</p><h1>{{ site.membersLabel }}</h1>
-				<div class="member-list"><article v-for="member in members" :key="member.id" class="member-row"><div class="member-identity"><strong>{{ member.displayName }}</strong><span>{{ member.username }}</span></div><span class="member-post-count">{{ site.postCountLabel }} · {{ member.postsCount }}</span><time :datetime="member.createdAt">{{ formatDate(member.createdAt.slice(0, 10)) }}</time><select :value="member.role" :aria-label="`${member.displayName} ${site.memberRoleLabel}`" @change="updateMemberRole(member, $event.target.value)"><option value="author">{{ site.authorRoleLabel }}</option><option value="admin">{{ site.adminRoleLabel }}</option></select></article></div>
-			</section>
-
-			<section v-else-if="view === 'manage-posts' && isAdmin" class="management-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.managePostsLabel }}</p><h1>{{ site.manageHeading }}</h1>
-				<div class="managed-post-list"><article v-for="post in posts" :key="post.id" class="managed-post-row"><div class="managed-post-copy"><strong>{{ post.title }}</strong><span>{{ post.authorName }} · {{ formatDate(post.date) }}</span></div><span class="private-badge" v-if="post.status === 'draft'">{{ site.draftLabel }}</span><span class="private-badge" v-else-if="post.status === 'scheduled'">{{ site.scheduledLabel }}</span><span v-else class="managed-status">{{ post.visibility === 'private' ? site.privateLabel : site.publishedLabel }}</span><button class="card-feature" :aria-label="post.featured ? site.unfeaturePostLabel : site.featurePostLabel" @click="toggleFeatured(post)">{{ post.featured ? '★' : '☆' }}</button><button class="outline-button compact-action" @click="openEditor(post)">{{ site.editPostLabel }}</button><button class="text-action" @click="readPost(post)">{{ site.readMoreLabel }} <span aria-hidden="true">↗</span></button></article></div>
-			</section>
-
-			<section v-else-if="view === 'analytics' && isAdmin" class="management-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.analyticsLabel }}</p><h1>{{ site.popularPostsLabel }}</h1>
-				<p class="analytics-range">{{ currentLocale.ui.recentDaysLabel }}</p>
-				<ol v-if="analytics.popularPosts.length" class="analytics-list"><li v-for="(item, index) in analytics.popularPosts" :key="item.post.id"><span class="analytics-rank">{{ String(index + 1).padStart(2, '0') }}</span><button class="text-action" @click="readPost(item.post)">{{ item.post.title }}</button><strong>{{ item.views }} {{ site.viewsLabel }}</strong></li></ol>
-				<p v-else class="no-comments">{{ site.noAnalyticsLabel }}</p>
-			</section>
-
-			<article v-else-if="view === 'entry' && selectedPost" class="post-view">
-				<button class="back-link" @click="goHome"><span aria-hidden="true">←</span> {{ site.backLabel }}</button>
-				<div class="post-heading">
-					<div class="card-meta"><time :datetime="selectedPost.date">{{ formatDate(selectedPost.date) }}</time><button class="author-link" @click="openAuthor(selectedPost.authorId)">{{ selectedPost.authorName }}</button><span class="reading-time">{{ readingMinutes(selectedPost.content) }}{{ site.readingTimeSuffix }}</span><span v-if="selectedPost.status === 'draft'" class="private-badge">{{ site.draftLabel }}</span><span v-if="selectedPost.status === 'scheduled'" class="private-badge">{{ site.scheduledLabel }}</span><span v-if="selectedPost.visibility === 'private'" class="private-badge">{{ site.privateLabel }}</span></div>
-					<h1>{{ selectedPost.title }}</h1>
-					<div class="post-tags"><span v-for="tag in selectedPost.tags" :key="tag">{{ tag }}</span></div>
-				</div>
-				<img v-if="selectedPost.coverImage" class="post-cover" :src="selectedPost.coverImage" :alt="selectedPost.title" />
-				<div class="markdown-content post-content" v-html="renderMarkdown(selectedPost.content)"></div>
-				<section v-if="relatedPosts.length" class="related-section"><h2>{{ site.relatedPostsLabel }}</h2><div class="related-list"><button v-for="post in relatedPosts" :key="post.id" @click="readPost(post)"><span>{{ post.title }}</span><small>{{ post.authorName }}</small></button></div></section>
-				<div v-if="isPublicEntry(selectedPost)" class="post-share-row"><button class="outline-button" @click="sharePost">{{ site.shareLabel }} <span aria-hidden="true">↗</span></button><span v-if="shareStatus" class="share-status">{{ shareStatus }}</span></div>
-				<section v-if="isPublicEntry(selectedPost)" class="comments-section" aria-labelledby="comments-title">
-					<h2 id="comments-title">{{ site.commentsLabel }} <span>{{ comments.filter((comment) => comment.status === 'approved' || isAdmin).length }}</span></h2>
-					<p v-if="!comments.length" class="no-comments">{{ site.noCommentsLabel }}</p>
-					<ol v-else class="comment-list"><li v-for="comment in comments" :key="comment.id"><div class="comment-meta"><strong>{{ comment.name }}</strong><time :datetime="comment.createdAt">{{ formatDate(comment.createdAt.slice(0, 10)) }}</time><span v-if="comment.status === 'pending'" class="private-badge">{{ site.commentPendingLabel }}</span></div><p>{{ comment.content }}</p><div v-if="isAdmin && comment.status === 'pending'" class="comment-moderation"><button class="text-action" @click="moderateComment(comment, 'approved')">{{ site.approveLabel }}</button><button class="delete-button" @click="moderateComment(comment, 'rejected')">{{ site.rejectLabel }}</button><button class="text-action" :disabled="aiCommentReviews[comment.id]?.loading" @click="reviewCommentWithAi(comment)">{{ aiCommentReviews[comment.id]?.loading ? currentLocale.ai.commentReviewing : currentLocale.ai.commentReviewAction }}</button><p v-if="aiCommentReviews[comment.id]?.reason" class="ai-comment-review"><strong>{{ currentLocale.ai.commentRecommendation }}: {{ currentLocale.ai.recommendations[aiCommentReviews[comment.id].category] }}</strong> · {{ aiCommentReviews[comment.id].reason }}</p></div></li></ol>
-					<form class="comment-form" @submit.prevent="submitComment"><label>{{ site.commentNameLabel }}<input v-model="commentDraft.name" maxlength="60" required /></label><label>{{ site.commentContentLabel }}<textarea v-model="commentDraft.content" rows="3" maxlength="2000" required /></label><label class="honeypot-field" aria-hidden="true">{{ currentLocale.ui.honeypotLabel }}<input v-model="commentDraft.website" tabindex="-1" autocomplete="off" /></label><div class="comment-form-footer"><small>{{ site.commentReviewNote }}</small><button class="primary-button" type="submit">{{ site.commentSubmitLabel }}</button></div><p v-if="commentNotice" class="form-note">{{ commentNotice }}</p></form>
-				</section>
-				<div v-if="canEditPost(selectedPost)" class="post-admin-actions"><button class="outline-button" @click="openEditor(selectedPost)">✎ {{ site.editPostLabel }}</button></div>
-			</article>
+			<PostReader v-else-if="view === 'entry' && selectedPost" :app="app" />
 			<section v-else-if="view !== 'editor'" class="empty-state lost-state"><p>{{ site.noResultsLabel }}</p><button class="text-action" @click="goHome">{{ site.backLabel }} <span aria-hidden="true">↗</span></button></section>
 			<div id="editor-page"></div>
 		</main>
 
 		<footer class="site-footer"><a class="footer-mark" href="#home" @click.prevent="goHome">{{ site.blogName }}<span>.</span></a><p>{{ site.footerText }}</p><a class="rss-link" href="/feed.xml">{{ site.rssLabel }}</a><span class="footer-year">{{ site.copyrightLabel }}</span></footer>
 
-		<div v-if="authOpen" class="overlay" @click.self="authOpen = false">
-			<section class="dialog auth-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-				<button class="dialog-close" :aria-label="currentLocale.ui.closeDialogLabel" @click="authOpen = false">×</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ authMode === 'login' ? site.welcomeLabel : site.adminAccessLabel }}</p>
-				<h2 id="auth-title">{{ authMode === 'login' ? site.signInLabel : site.signupLabel }}</h2>
-				<p class="dialog-note">{{ authMode === 'login' ? site.loginNote : site.registrationNote }}</p>
-				<form class="stack-form" @submit.prevent="submitAuth">
-					<label>{{ site.accountLabel }}<input v-model="authDraft.username" autocomplete="username" required minlength="3" maxlength="32" /></label>
-					<label>{{ site.passwordLabel }}<input v-model="authDraft.password" type="password" :autocomplete="authMode === 'login' ? 'current-password' : 'new-password'" required minlength="8" /></label>
-					<label v-if="authMode === 'register'">{{ site.inviteLabel }}<input v-model="authDraft.inviteCode" type="password" autocomplete="off" required /></label>
-					<p v-if="authError" class="form-error">{{ authError }}</p>
-					<button class="primary-button form-submit" :disabled="busy">{{ busy ? site.waitingLabel : authMode === 'login' ? site.signInLabel : site.signupLabel }} <span aria-hidden="true">↗</span></button>
-				</form>
-				<button class="mode-switch" @click="authMode = authMode === 'login' ? 'register' : 'login'; authError = ''">{{ authMode === 'login' ? site.registerPrompt : site.loginPrompt }}</button>
-			</section>
-		</div>
+		<AuthDialog :app="app" />
 
-		<Teleport to="#editor-page" v-if="view === 'editor'">
-			<div class="full-editor-heading">
-				<button class="back-link" type="button" @click="cancelEditor"><span aria-hidden="true">←</span> {{ site.cancelLabel }}</button>
-				<p class="eyebrow"><span class="eyebrow-rule"></span>{{ editingId ? site.editPostLabel : site.newPostLabel }}</p>
-			</div>
-			<form class="full-editor-form" @submit.prevent="savePost()">
-				<label class="editor-title-field">{{ site.titleLabel }}<input class="editor-title-input" v-model="draft.title" required maxlength="180" :placeholder="site.titlePlaceholder" /></label>
-				<div class="editor-workspace">
-					<aside class="editor-settings-rail">
-						<div class="editor-rail-heading"><span>{{ site.blogName.toUpperCase() }} / {{ editingId ? site.editPostLabel : site.newPostLabel }}</span><strong>{{ site.statusLabel }}</strong></div>
-						<label>{{ site.tagsLabel }}<input v-model="draft.tags" :placeholder="site.tagsPlaceholder" /></label>
-						<div class="editor-select-row">
-							<label>{{ site.visibilityLabel }}<select v-model="draft.visibility"><option value="public">{{ site.publicLabel }}</option><option value="private">{{ site.privateOptionLabel }}</option></select></label>
-							<label>{{ site.statusLabel }}<select v-model="draft.status"><option value="published">{{ site.publishedLabel }}</option><option value="draft">{{ site.draftLabel }}</option><option value="scheduled">{{ site.scheduledLabel }}</option></select></label>
-						</div>
-						<label v-if="draft.status === 'scheduled'">{{ site.scheduleLabel }}<input v-model="draft.scheduledAt" type="datetime-local" required /></label>
-						<div class="full-editor-cover"><label>{{ site.coverLabel }}</label><div v-if="draft.coverImage" class="cover-preview"><img :src="draft.coverImage" :alt="draft.title || site.coverLabel" /><button class="text-action" type="button" @click="draft.coverImage = ''">{{ site.removeImageLabel }}</button></div><p v-else class="cover-empty">{{ site.uploadHint }}</p><div class="upload-row"><label class="upload-button">{{ site.chooseImageLabel }}<input class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="uploadCover" /></label></div></div>
-						<details class="seo-editor"><summary>{{ site.seoPreviewLabel }}</summary><button class="text-action" type="button" :disabled="aiMetadataBusy" @click="generateAiMetadata">{{ aiMetadataBusy ? currentLocale.ai.metadataGenerating : currentLocale.ai.metadataAction }}</button><label>{{ site.seoTitleLabel }}<input v-model="draft.seoTitle" maxlength="180" :placeholder="draft.title || site.titlePlaceholder" /></label><label>{{ site.seoDescriptionLabel }}<textarea v-model="draft.seoDescription" rows="2" maxlength="300" :placeholder="postSummary(draft.content)" /></label></details>
-						<details v-if="editingId" class="revision-panel"><summary>{{ site.revisionsLabel }} · {{ revisions.length }}</summary><p v-if="!revisions.length">{{ site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="restoreRevision(revision)">{{ site.restoreLabel }}</button></li></ol></details>
-					</aside>
-					<section class="editor-writing-area">
-						<section v-if="admin" class="ai-writing-tools">
-							<div class="ai-tools-row">
-								<strong>{{ currentLocale.ai.editorHeading }}</strong>
-								<label>{{ currentLocale.ai.actionLabel }}<select v-model="aiAction"><option v-for="(label, action) in currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select></label>
-								<label v-if="aiAction === 'translate'">{{ currentLocale.ai.targetLanguage }}<select v-model="aiTargetLanguage"><option value="en">{{ currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ currentLocale.ui.languageKoreanName }}</option></select></label>
-								<button class="outline-button compact-action" type="button" :disabled="aiAssistantBusy" @click="runAiAction">{{ aiAssistantBusy ? currentLocale.ai.generating : currentLocale.ai.generate }}</button>
-							</div>
-							<p class="ai-settings-hint">{{ currentLocale.ai.draftPrivacyNote }}</p>
-							<label v-if="aiSuggestion" class="ai-suggestion-field">{{ currentLocale.ai.suggestionLabel }}<textarea v-model="aiSuggestion" rows="5" /></label>
-							<button v-if="aiSuggestion" class="text-action" type="button" @click="useAiSuggestion">{{ currentLocale.ai.useSuggestion }}</button>
-							<p v-if="aiAssistantError" class="form-error">{{ aiAssistantError }}</p>
-						</section>
-						<MdxEditor v-model="draft.content" :placeholder="site.markdownPlaceholder" :locale="language" />
-					</section>
-				</div>
-				<p v-if="editorError" class="form-error">{{ editorError }}</p>
-				<div class="full-editor-actions"><button v-if="editingId" class="delete-button" type="button" @click="deletePost">{{ site.deleteLabel }}</button><button class="outline-button" type="button" :disabled="busy" @click="savePost('draft')">{{ site.draftLabel }}</button><p v-if="autosaveStatus" class="autosave-status" aria-live="polite">{{ autosaveStatus }}</p><span class="editor-action-spacer"></span><button class="quiet-button" type="button" @click="cancelEditor">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : draft.status === 'scheduled' ? site.scheduledLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
-			</form>
-		</Teleport>
-
-		<div v-if="settingsOpen" class="overlay" @click.self="settingsOpen = false">
-			<section class="dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-				<header class="editor-header"><div><p class="eyebrow"><span class="eyebrow-rule"></span>{{ site.settingsLabel }}</p><h2 id="settings-title">{{ site.settingsLabel }}</h2></div><button class="dialog-close" :aria-label="currentLocale.ui.closeSettingsLabel" @click="settingsOpen = false">×</button></header>
-				<p class="dialog-note settings-note">{{ site.settingsNote }}</p>
-				<section class="ai-settings-panel">
-					<h3>{{ currentLocale.ai.settingsHeading }}</h3>
-					<p class="ai-settings-description">{{ currentLocale.ai.settingsDescription }}</p>
-					<div class="ai-settings-grid">
-						<label>{{ currentLocale.ai.providerLabel }}<select v-model="aiConfig.provider" @change="changeAiProvider"><option v-for="provider in aiConfig.providers" :key="provider.id" :value="provider.id" :disabled="!provider.configured">{{ currentLocale.ai.providers[provider.id] }}{{ provider.configured ? '' : ' · —' }}</option></select></label>
-						<label>{{ currentLocale.ai.modelLabel }}<input v-model="aiConfig.model" maxlength="120" /></label>
-					</div>
-					<label class="ai-archive-toggle"><input v-model="aiConfig.archiveEnabled" type="checkbox" />{{ currentLocale.ai.archiveToggle }}</label>
-					<p class="ai-settings-description">{{ currentLocale.ai.archiveDescription }}</p>
-					<p class="ai-settings-hint">{{ currentLocale.ai.apiKeyHint }}</p>
-					<div class="ai-settings-actions"><span>{{ currentLocale.ai.statusLabel }}: {{ currentLocale.ai.status[aiStatus.state] || aiStatus.state }}</span><button class="outline-button compact-action" type="button" @click="checkAiStatus">{{ currentLocale.ai.checkStatus }}</button><button class="primary-button compact-action" type="button" :disabled="aiSettingsBusy" @click="saveAiSettings">{{ aiSettingsBusy ? site.savingLabel : currentLocale.ai.saveSettings }}</button></div>
-					<p v-if="aiSettingsError" class="form-error">{{ aiSettingsError }}</p>
-					<p v-if="aiSettingsNotice" class="form-note">{{ aiSettingsNotice }}</p>
-				</section>
-				<form @submit.prevent="saveSettings">
-					<section v-for="group in siteFields" :key="group.heading" class="settings-group"><h3>{{ fieldGroupHeading(group.heading) }}</h3><div class="settings-grid"><label v-for="key in group.keys" :key="key">{{ localizedFieldLabels[key] }}<input v-model="siteDraft[key]" :disabled="key === 'blogName' && siteNameManagedByEnv" /><small v-if="key === 'blogName' && siteNameManagedByEnv" class="site-name-env-hint">{{ currentLocale.ui.siteNameManagedHint }}</small></label></div></section>
-					<div class="editor-actions settings-actions"><button type="button" class="quiet-button" @click="settingsOpen = false">{{ site.cancelLabel }}</button><button class="primary-button" :disabled="busy">{{ busy ? site.savingLabel : site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
-				</form>
-			</section>
-		</div>
+		<WriterEditor :app="app" />
+		<SiteSettingsDialog :app="app" />
 	</div>
 </template>
