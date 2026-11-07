@@ -132,7 +132,7 @@ const {
 	aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
 	archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
 	loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-	useAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
+	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
 } = aiFeatures;
 const authoredPostCount = computed(() => posts.value.filter((post) => post.authorId === admin.value?.id).length);
 const relatedPosts = computed(() => {
@@ -277,6 +277,20 @@ async function saveProfile() {
 	}
 }
 
+async function deleteProfile() {
+	if (!window.confirm(site.value.deleteAccountConfirm)) return;
+	try {
+		await api('/profile', { method: 'DELETE' });
+		clearToken();
+		admin.value = null;
+		view.value = 'home';
+		await loadPosts();
+		window.scrollTo({ top: 0 });
+	} catch (error) {
+		window.alert(error.message);
+	}
+}
+
 async function openMembers() {
 	try {
 		members.value = await api('/members');
@@ -307,6 +321,25 @@ async function updateMemberRole(member, role) {
 	try {
 		await api(`/members/${member.id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
 		await loadMembers();
+	} catch (error) {
+		window.alert(error.message);
+	}
+}
+
+async function deleteMember(member) {
+	const confirmation = site.value.memberDeleteConfirm.replace('{name}', member.displayName || member.username);
+	if (!window.confirm(confirmation)) return;
+	try {
+		await api(`/members/${member.id}`, { method: 'DELETE' });
+		if (member.id === admin.value.id) {
+			clearToken();
+			admin.value = null;
+			view.value = 'home';
+			await loadPosts();
+			window.scrollTo({ top: 0 });
+		} else {
+			await loadMembers();
+		}
 	} catch (error) {
 		window.alert(error.message);
 	}
@@ -659,9 +692,9 @@ const app = reactive({
 	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
 	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
-	saveProfile, updateMemberRole, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
+	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
 	moderateComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
-	useAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi, isPublicEntry
+	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi, isPublicEntry
 });
 </script>
 

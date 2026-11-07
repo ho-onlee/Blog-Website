@@ -14,6 +14,7 @@ const app = props.app;
 			<p class="profile-username">{{ app.admin.username }} · {{ app.admin.role === 'admin' ? app.site.adminRoleLabel : app.site.authorRoleLabel }}</p>
 			<button class="primary-button" :disabled="app.busy">{{ app.busy ? app.site.savingLabel : app.site.profileSaveLabel }}</button>
 		</form>
+		<div class="profile-danger-zone"><p>{{ app.site.accountRemovalNote }}</p><button class="delete-button" type="button" @click="app.deleteProfile">{{ app.site.deleteAccountLabel }}</button></div>
 	</section>
 
 	<section v-else-if="app.view === 'author' && app.authorPage" class="author-view">
@@ -28,7 +29,7 @@ const app = props.app;
 	<section v-else-if="app.view === 'members' && app.isAdmin" class="management-view">
 		<button class="back-link" @click="app.goHome"><span aria-hidden="true">←</span> {{ app.site.backLabel }}</button>
 		<p class="eyebrow"><span class="eyebrow-rule"></span>{{ app.site.membersLabel }}</p><h1>{{ app.site.membersLabel }}</h1>
-		<div class="member-list"><article v-for="member in app.members" :key="member.id" class="member-row"><div class="member-identity"><strong>{{ member.displayName }}</strong><span>{{ member.username }}</span></div><span class="member-post-count">{{ app.site.postCountLabel }} · {{ member.postsCount }}</span><time :datetime="member.createdAt">{{ app.formatDate(member.createdAt.slice(0, 10)) }}</time><select :value="member.role" :aria-label="`${member.displayName} ${app.site.memberRoleLabel}`" @change="app.updateMemberRole(member, $event.target.value)"><option value="author">{{ app.site.authorRoleLabel }}</option><option value="admin">{{ app.site.adminRoleLabel }}</option></select></article></div>
+		<div class="member-list"><article v-for="member in app.members" :key="member.id" class="member-row"><div class="member-identity"><strong>{{ member.displayName }}</strong><span>{{ member.username }}</span></div><span class="member-post-count">{{ app.site.postCountLabel }} · {{ member.postsCount }}</span><time :datetime="member.createdAt">{{ app.formatDate(member.createdAt.slice(0, 10)) }}</time><select :value="member.role" :aria-label="`${member.displayName} ${app.site.memberRoleLabel}`" @change="app.updateMemberRole(member, $event.target.value)"><option value="author">{{ app.site.authorRoleLabel }}</option><option value="admin">{{ app.site.adminRoleLabel }}</option></select><button class="delete-button member-remove" type="button" @click="app.deleteMember(member)">{{ app.site.removeMemberLabel }}</button></article></div>
 	</section>
 
 	<section v-else-if="app.view === 'manage-posts' && app.isAdmin" class="management-view">

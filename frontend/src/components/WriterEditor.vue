@@ -1,8 +1,41 @@
 <script setup>
+import { computed, ref } from 'vue';
 import MdxEditor from './MdxEditor.vue';
 
 const props = defineProps({ app: { type: Object, required: true } });
 const app = props.app;
+const tagInput = ref('');
+const tagInputFocused = ref(false);
+const draftTags = computed(() => app.draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean));
+const tagSuggestions = computed(() => {
+	const query = tagInput.value.trim().toLowerCase();
+	if (!query && !tagInputFocused.value) return [];
+	return app.allTags.filter((tag) => (!query || tag.toLowerCase().includes(query)) && !draftTags.value.some((draftTag) => draftTag.toLowerCase() === tag.toLowerCase())).slice(0, 6);
+});
+
+function addDraftTag(value = tagInput.value) {
+	const tags = [...draftTags.value];
+	for (const candidate of String(value).split(',')) {
+		const typedTag = candidate.trim().slice(0, 32);
+		const tag = app.allTags.find((existingTag) => existingTag.toLowerCase() === typedTag.toLowerCase()) || typedTag;
+		if (tag && tags.length < 8 && !tags.some((draftTag) => draftTag.toLowerCase() === tag.toLowerCase())) tags.push(tag);
+	}
+	app.draft.tags = tags.join(', ');
+	tagInput.value = '';
+}
+
+function removeDraftTag(tagToRemove) {
+	app.draft.tags = draftTags.value.filter((tag) => tag !== tagToRemove).join(', ');
+}
+
+function handleTagInputKeydown(event) {
+	if (event.key === ',') {
+		event.preventDefault();
+		addDraftTag();
+	} else if (event.key === 'Backspace' && !tagInput.value && draftTags.value.length) {
+		removeDraftTag(draftTags.value[draftTags.value.length - 1]);
+	}
+}
 </script>
 
 <template>
@@ -16,7 +49,18 @@ const app = props.app;
 			<div class="editor-workspace">
 				<aside class="editor-settings-rail">
 					<div class="editor-rail-heading"><span>{{ app.site.blogName.toUpperCase() }} / {{ app.editingId ? app.site.editPostLabel : app.site.newPostLabel }}</span><strong>{{ app.site.statusLabel }}</strong></div>
-					<label>{{ app.site.tagsLabel }}<input v-model="app.draft.tags" :placeholder="app.site.tagsPlaceholder" /></label>
+					<div class="editor-tag-field">
+						<span class="editor-field-label">{{ app.site.tagsLabel }}</span>
+						<div class="editor-tag-input">
+							<div class="editor-tag-pills">
+								<span v-for="tag in draftTags" :key="tag" class="editor-tag-pill"><span>{{ tag }}</span><button type="button" :aria-label="app.site.removeTagLabel.replace('{tag}', tag)" :title="app.site.removeTagLabel.replace('{tag}', tag)" @click="removeDraftTag(tag)">×</button></span>
+							</div>
+							<input v-model="tagInput" :aria-label="app.site.tagsLabel" aria-autocomplete="list" :aria-expanded="tagSuggestions.length > 0" :placeholder="app.site.tagsPlaceholder" @focus="tagInputFocused = true" @keydown="handleTagInputKeydown" @keydown.enter.prevent="addDraftTag()" @blur="addDraftTag(); tagInputFocused = false" />
+						</div>
+						<div v-if="tagSuggestions.length" class="editor-tag-suggestions" role="listbox">
+							<button v-for="tag in tagSuggestions" :key="tag" type="button" role="option" :aria-selected="false" @pointerdown.prevent @click="addDraftTag(tag)">{{ tag }}</button>
+						</div>
+					</div>
 					<div class="editor-select-row">
 						<label>{{ app.site.visibilityLabel }}<select v-model="app.draft.visibility"><option value="public">{{ app.site.publicLabel }}</option><option value="private">{{ app.site.privateOptionLabel }}</option></select></label>
 						<label>{{ app.site.statusLabel }}<select v-model="app.draft.status"><option value="published">{{ app.site.publishedLabel }}</option><option value="draft">{{ app.site.draftLabel }}</option><option value="scheduled">{{ app.site.scheduledLabel }}</option></select></label>
@@ -27,23 +71,32 @@ const app = props.app;
 					<details v-if="app.editingId" class="revision-panel"><summary>{{ app.site.revisionsLabel }} · {{ app.revisions.length }}</summary><p v-if="!app.revisions.length">{{ app.site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in app.revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ app.formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="app.restoreRevision(revision)">{{ app.site.restoreLabel }}</button></li></ol></details>
 				</aside>
 				<section class="editor-writing-area">
-					<section v-if="app.admin" class="ai-writing-tools">
-						<div class="ai-tools-row">
-							<strong>{{ app.currentLocale.ai.editorHeading }}</strong>
-							<label>{{ app.currentLocale.ai.actionLabel }}<select v-model="app.aiAction"><option v-for="(label, action) in app.currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select></label>
-							<label v-if="app.aiAction === 'translate'">{{ app.currentLocale.ai.targetLanguage }}<select v-model="app.aiTargetLanguage"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select></label>
-							<button class="outline-button compact-action" type="button" :disabled="app.aiAssistantBusy" @click="app.runAiAction">{{ app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate }}</button>
-						</div>
-						<p class="ai-settings-hint">{{ app.currentLocale.ai.draftPrivacyNote }}</p>
-						<label v-if="app.aiSuggestion" class="ai-suggestion-field">{{ app.currentLocale.ai.suggestionLabel }}<textarea v-model="app.aiSuggestion" rows="5" /></label>
-						<button v-if="app.aiSuggestion" class="text-action" type="button" @click="app.useAiSuggestion">{{ app.currentLocale.ai.useSuggestion }}</button>
-						<p v-if="app.aiAssistantError" class="form-error">{{ app.aiAssistantError }}</p>
-					</section>
+					<div v-if="app.aiSuggestion" class="ai-suggestion-preview" :aria-label="app.currentLocale.ai.suggestionLabel">{{ app.aiSuggestion }}</div>
 					<MdxEditor v-model="app.draft.content" :placeholder="app.site.markdownPlaceholder" :locale="app.language" />
 				</section>
 			</div>
 			<p v-if="app.editorError" class="form-error">{{ app.editorError }}</p>
-			<div class="full-editor-actions"><button v-if="app.editingId" class="delete-button" type="button" @click="app.deletePost">{{ app.site.deleteLabel }}</button><button class="outline-button" type="button" :disabled="app.busy" @click="app.savePost('draft')">{{ app.site.draftLabel }}</button><p v-if="app.autosaveStatus" class="autosave-status" aria-live="polite">{{ app.autosaveStatus }}</p><span class="editor-action-spacer"></span><button class="quiet-button" type="button" @click="app.cancelEditor">{{ app.site.cancelLabel }}</button><button class="primary-button" :disabled="app.busy">{{ app.busy ? app.site.savingLabel : app.draft.status === 'scheduled' ? app.site.scheduledLabel : app.site.saveLabel }} <span aria-hidden="true">↗</span></button></div>
+			<div class="full-editor-actions">
+				<div class="editor-action-group editor-action-start">
+					<button v-if="app.editingId" class="delete-button" type="button" @click="app.deletePost">{{ app.site.deleteLabel }}</button>
+					<button class="outline-button" type="button" :disabled="app.busy" @click="app.savePost('draft')">{{ app.site.draftLabel }}</button>
+					<p v-if="app.autosaveStatus" class="autosave-status" aria-live="polite">{{ app.autosaveStatus }}</p>
+				</div>
+				<div v-if="app.admin" class="editor-ai-actions" :aria-label="app.currentLocale.ai.editorHeading">
+					<select v-model="app.aiAction" :aria-label="app.currentLocale.ai.actionLabel"><option v-for="(label, action) in app.currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select>
+					<select v-if="app.aiAction === 'translate'" v-model="app.aiTargetLanguage" :aria-label="app.currentLocale.ai.targetLanguage"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select>
+					<button class="ai-generate-button" type="button" :disabled="app.aiAssistantBusy" :aria-label="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" :title="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" @click="app.runAiAction"><span aria-hidden="true">✦</span></button>
+					<template v-if="app.aiSuggestion">
+						<button class="ai-suggestion-action accept" type="button" :aria-label="app.currentLocale.ai.useSuggestion" :title="app.currentLocale.ai.useSuggestion" @click="app.useAiSuggestion">✓</button>
+						<button class="ai-suggestion-action decline" type="button" :aria-label="app.currentLocale.ai.dismissSuggestion" :title="app.currentLocale.ai.dismissSuggestion" @click="app.dismissAiSuggestion">×</button>
+					</template>
+					<p v-if="app.aiAssistantError" class="form-error editor-ai-error">{{ app.aiAssistantError }}</p>
+				</div>
+				<div class="editor-action-group editor-action-end">
+					<button class="quiet-button" type="button" @click="app.cancelEditor">{{ app.site.cancelLabel }}</button>
+					<button class="primary-button" :disabled="app.busy">{{ app.busy ? app.site.savingLabel : app.draft.status === 'scheduled' ? app.site.scheduledLabel : app.site.saveLabel }} <span aria-hidden="true">↗</span></button>
+				</div>
+			</div>
 		</form>
 	</Teleport>
 </template>

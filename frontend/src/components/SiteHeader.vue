@@ -17,6 +17,5 @@ const app = props.app;
 			</template>
 			<button v-else class="quiet-button login-trigger" @click="app.openAuth('login')">{{ app.site.signInLabel }} <span aria-hidden="true">↗</span></button>
 		</div>
-		<div v-if="app.admin" class="admin-indicator"><span></span>{{ app.site.postCountLabel }} {{ app.authoredPostCount }} · {{ app.isAdmin ? app.site.adminLabel : app.site.authorRoleLabel }}</div>
 	</header>
 </template>

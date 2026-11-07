@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const ai = require('./ai');
-const { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, allowComment, recordView, getAnalytics } = require('./database');
+const { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, removeSessionsForAccount, allowComment, recordView, getAnalytics } = require('./database');
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
@@ -775,19 +775,48 @@ app.put('/api/profile', requireWriter, async (request, response, next) => {
 	}
 });
 
+app.delete('/api/profile', requireWriter, async (request, response, next) => {
+	try {
+		const result = await removeAccountById(request.account.id);
+		if (result.error) return response.status(result.status).json({ error: result.error });
+		response.status(204).end();
+	} catch (error) {
+		next(error);
+	}
+});
+
 app.get('/api/authors/:id', async (request, response, next) => {
 	try {
 		const [accounts, posts] = await Promise.all([readJson(accountsFile, []), loadPosts()]);
 		const account = accounts.find((item) => item.id === request.params.id);
-		if (!account) return response.status(404).json({ error: '작가를 찾을 수 없습니다.' });
+		const authorPosts = posts.filter((post) => post.authorId === request.params.id && isPublicPost(post));
+		if (!account && !authorPosts.length) return response.status(404).json({ error: '작가를 찾을 수 없습니다.' });
 		response.json({
-			author: { id: account.id, displayName: account.displayName || account.username, bio: account.bio || '' },
-			posts: posts.filter((post) => post.authorId === account.id && isPublicPost(post))
+			author: {
+				id: account?.id || request.params.id,
+				displayName: account?.displayName || account?.username || authorPosts[0]?.authorName || defaultSite.blogName,
+				bio: account?.bio || ''
+			},
+			posts: authorPosts
 		});
 	} catch (error) {
 		next(error);
 	}
 });
+
+async function removeAccountById(accountId) {
+	const accounts = await readJson(accountsFile, []);
+	const accountIndex = accounts.findIndex((account) => account.id === accountId);
+	if (accountIndex < 0) return { status: 404, error: '회원을 찾을 수 없습니다.' };
+	const account = accounts[accountIndex];
+	if (account.role === 'admin' && accounts.filter((item) => item.role === 'admin').length <= 1) {
+		return { status: 409, error: '마지막 관리자 계정은 삭제할 수 없습니다.' };
+	}
+	accounts.splice(accountIndex, 1);
+	await writeJson(accountsFile, accounts);
+	removeSessionsForAccount(accountId);
+	return { status: 204 };
+}
 
 app.get('/api/members', requireAdmin, async (request, response, next) => {
 	try {
@@ -814,6 +843,16 @@ app.patch('/api/members/:id', requireAdmin, async (request, response, next) => {
 		member.role = request.body.role;
 		await writeJson(accountsFile, accounts);
 		response.json(safeUser(member));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.delete('/api/members/:id', requireAdmin, async (request, response, next) => {
+	try {
+		const result = await removeAccountById(request.params.id);
+		if (result.error) return response.status(result.status).json({ error: result.error });
+		response.status(204).end();
 	} catch (error) {
 		next(error);
 	}

@@ -174,6 +174,10 @@ function removeSession(token) {
 	if (token) database.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenDigest(token));
 }
 
+function removeSessionsForAccount(accountId) {
+	database.prepare('DELETE FROM sessions WHERE account_id = ?').run(accountId);
+}
+
 function allowComment(ipHash, now, limit = 5) {
 	const check = database.transaction(() => {
 		const cutoff = new Date(Date.parse(now) - 60 * 60 * 1000).toISOString();
@@ -199,4 +203,4 @@ function getAnalytics(sinceDay) {
 	}));
 }
 
-module.exports = { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, allowComment, recordView, getAnalytics };
+module.exports = { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, removeSessionsForAccount, allowComment, recordView, getAnalytics };

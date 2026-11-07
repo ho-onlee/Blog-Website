@@ -89,6 +89,10 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft, selec
 		aiSuggestion.value = '';
 	}
 
+	function dismissAiSuggestion() {
+		aiSuggestion.value = '';
+	}
+
 	async function generateAiMetadata() {
 		aiMetadataBusy.value = true;
 		aiAssistantError.value = '';
@@ -137,6 +141,6 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft, selec
 		aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
 		archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
 		loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-		useAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
+		useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
 	};
 }
