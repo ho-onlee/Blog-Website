@@ -62,6 +62,7 @@ const postLimit = ref(9);
 const authOpen = ref(false);
 const authMode = ref('login');
 const authError = ref('');
+const notification = ref('');
 const busy = ref(false);
 const settingsOpen = ref(false);
 const editorError = ref('');
@@ -80,6 +81,7 @@ const editingId = ref(null);
 const editorReturnView = ref('home');
 const theme = ref(localStorage.getItem('seohakru_theme') === 'dark' ? 'dark' : 'light');
 let autosaveTimer;
+let notificationTimer;
 
 function applyTheme() {
 	document.documentElement.dataset.theme = theme.value;
@@ -358,12 +360,21 @@ onMounted(async () => {
 onBeforeUnmount(() => {
 	window.removeEventListener('popstate', syncLocation);
 	clearTimeout(autosaveTimer);
+	clearTimeout(notificationTimer);
 });
 
 function openAuth(mode = 'login') {
 	authMode.value = mode;
 	authError.value = '';
 	authOpen.value = true;
+}
+
+function showErrorNotification(message) {
+	notification.value = message;
+	clearTimeout(notificationTimer);
+	notificationTimer = window.setTimeout(() => {
+		notification.value = '';
+	}, 7000);
 }
 
 async function submitAuth() {
@@ -379,6 +390,7 @@ async function submitAuth() {
 		await loadPosts();
 	} catch (error) {
 		authError.value = error.message;
+		showErrorNotification(error.message);
 	} finally {
 		busy.value = false;
 	}
@@ -645,7 +657,7 @@ const app = reactive({
 	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
 	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
-	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth,
+	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
 	saveProfile, updateMemberRole, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
 	moderateComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
@@ -656,6 +668,10 @@ const app = reactive({
 <template>
 	<div class="site-shell">
 		<SiteHeader :app="app" />
+		<div v-if="notification" class="top-notification" role="alert" aria-live="assertive">
+			<span>{{ notification }}</span>
+			<button type="button" :aria-label="currentLocale.ui.closeDialogLabel" @click="notification = ''; clearTimeout(notificationTimer)">×</button>
+		</div>
 
 		<main>
 			<HomeView v-if="view === 'home'" :app="app" />
