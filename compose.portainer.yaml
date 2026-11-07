@@ -1,0 +1,27 @@
+services:
+  api:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATA_DIR: /app/data
+      SIGNUP_CODE: ${SIGNUP_CODE:?Set a random SIGNUP_CODE of at least 32 characters}
+      PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS URL}
+      BACKUP_DIR: /backups
+    volumes:
+      - "${DATA_HOST_PATH:?Set an absolute persistent data directory on the Docker host}:/app/data"
+      - "${UPLOADS_HOST_PATH:?Set an absolute persistent uploads directory on the Docker host}:/app/uploads"
+      - "${BACKUP_HOST_PATH:?Set a durable backup directory on the Docker host}:/backups"
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    restart: unless-stopped
