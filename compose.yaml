@@ -6,10 +6,13 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATA_DIR: /app/data
+      SIGNUP_CODE: ${SIGNUP_CODE:?Set SIGNUP_CODE in .env to a random secret of at least 32 characters}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      BACKUP_DIR: /backups
     volumes:
       - ./backend/data:/app/data
       - ./backend/uploads:/app/uploads
+      - "${HOST_BACKUP_DIR:-../seohakru-backups}:/backups"
     expose:
       - "3001"
     restart: unless-stopped

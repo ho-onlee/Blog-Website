@@ -604,7 +604,8 @@ app.patch('/api/members/:id', requireAdmin, async (request, response, next) => {
 app.post('/api/auth/register', async (request, response, next) => {
 	try {
 		const { username, password, inviteCode } = request.body || {};
-		if (typeof inviteCode !== 'string' || inviteCode !== (process.env.SIGNUP_CODE || 'seohakru')) {
+		const signupCode = process.env.SIGNUP_CODE || (process.env.NODE_ENV === 'production' ? '' : 'seohakru');
+		if (!signupCode || typeof inviteCode !== 'string' || inviteCode !== signupCode) {
 			return response.status(403).json({ error: '초대 코드가 올바르지 않습니다.' });
 		}
 		if (typeof username !== 'string' || username.trim().length < 3 || username.trim().length > 32) {
@@ -696,6 +697,9 @@ app.use((error, request, response, next) => {
 });
 
 async function start() {
+	if (process.env.NODE_ENV === 'production' && Buffer.byteLength(process.env.SIGNUP_CODE || '', 'utf8') < 32) {
+		throw new Error('Production requires SIGNUP_CODE to contain at least 32 bytes.');
+	}
 	await initializeDatabase(dataDir);
 	await fs.mkdir(dataDir, { recursive: true });
 	await fs.mkdir(uploadsDir, { recursive: true });
