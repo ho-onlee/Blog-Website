@@ -173,7 +173,7 @@ function renderMarkdown(value) {
 }
 
 function postSummary(value) {
-	return String(value || '').replace(/```[\s\S]*?```/g, '').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_~`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 130);
+	return String(value || '').replace(/```[\s\S]*?```/g, '').replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, '[image]').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_~`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 130);
 }
 
 function readingMinutes(value) {
