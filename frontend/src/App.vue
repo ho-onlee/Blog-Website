@@ -72,7 +72,7 @@ const revisions = ref([]);
 const comments = ref([]);
 const commentNotice = ref('');
 const shareStatus = ref('');
-const commentDraft = reactive({ name: '', content: '', website: '' });
+const commentDraft = reactive({ content: '', website: '' });
 const profileDraft = reactive({ displayName: '', bio: '' });
 const authDraft = reactive({ username: '', password: '', inviteCode: '' });
 const siteDraft = reactive({ ...defaultSite });
@@ -116,7 +116,7 @@ const siteFields = [
 	},
 	{
 		heading: 'writing',
-		keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentNameLabel', 'commentContentLabel', 'commentSubmitLabel', 'commentReviewNote', 'noCommentsLabel', 'commentPendingLabel', 'approveLabel', 'rejectLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel']
+		keys: ['titleLabel', 'coverLabel', 'tagsLabel', 'visibilityLabel', 'publicLabel', 'privateOptionLabel', 'saveLabel', 'cancelLabel', 'deleteLabel', 'accountLabel', 'passwordLabel', 'inviteLabel', 'signupLabel', 'welcomeLabel', 'adminAccessLabel', 'loginNote', 'registrationNote', 'registerPrompt', 'loginPrompt', 'uploadingLabel', 'uploadHint', 'chooseImageLabel', 'removeImageLabel', 'titlePlaceholder', 'tagsPlaceholder', 'markdownPlaceholder', 'settingsNote', 'deleteConfirm', 'savingLabel', 'waitingLabel', 'copyrightLabel', 'editPostLabel', 'newPostLabel', 'draftLabel', 'scheduledLabel', 'publishedLabel', 'statusLabel', 'scheduleLabel', 'seoTitleLabel', 'seoDescriptionLabel', 'seoPreviewLabel', 'autoSaveLabel', 'autoSavedLabel', 'revisionsLabel', 'restoreLabel', 'restoreConfirm', 'noRevisionsLabel', 'archiveLabel', 'allMonthsLabel', 'loadMoreLabel', 'rssLabel', 'shareLabel', 'copyLinkLabel', 'copiedLabel', 'readingTimeSuffix', 'commentsLabel', 'commentLoginPrompt', 'commentContentLabel', 'commentSubmitLabel', 'commentDeleteConfirm', 'commentDeletedLabel', 'noCommentsLabel', 'commentReceivedLabel', 'draftRestoredLabel', 'loadErrorLabel']
 	},
 	{
 		heading: 'authors',
@@ -126,13 +126,13 @@ const siteFields = [
 
 const selectedPost = computed(() => posts.value.find((post) => post.id === selectedPostId.value));
 const isAdmin = computed(() => admin.value?.role === 'admin');
-const aiFeatures = useAiFeatures({ currentLocale, language, savedSite, draft, selectedPost });
+const aiFeatures = useAiFeatures({ currentLocale, language, savedSite, draft });
 const {
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy,
 	aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
-	archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
+	archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
+	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive
 } = aiFeatures;
 const authoredPostCount = computed(() => posts.value.filter((post) => post.authorId === admin.value?.id).length);
 const relatedPosts = computed(() => {
@@ -532,23 +532,25 @@ async function submitComment() {
 	if (!selectedPost.value) return;
 	commentNotice.value = '';
 	try {
-		const result = await api(`/posts/${selectedPost.value.id}/comments`, {
+		await api(`/posts/${selectedPost.value.id}/comments`, {
 			method: 'POST',
-			body: JSON.stringify(commentDraft)
+			body: JSON.stringify({ content: commentDraft.content, website: commentDraft.website })
 		});
-		commentNotice.value = result.message || site.value.commentReceivedLabel;
+		commentNotice.value = site.value.commentReceivedLabel;
 		commentDraft.content = '';
 		commentDraft.website = '';
-		if (admin.value) await loadComments(selectedPost.value.id);
+		await loadComments(selectedPost.value.id);
 	} catch (error) {
 		commentNotice.value = error.message;
 	}
 }
 
-async function moderateComment(comment, status) {
+async function deleteComment(comment) {
+	if (!window.confirm(site.value.commentDeleteConfirm)) return;
 	try {
-		await api(`/comments/${comment.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+		await api(`/comments/${comment.id}`, { method: 'DELETE' });
 		if (selectedPost.value) await loadComments(selectedPost.value.id);
+		commentNotice.value = site.value.commentDeletedLabel;
 	} catch (error) {
 		commentNotice.value = error.message;
 	}
@@ -689,12 +691,12 @@ const app = reactive({
 	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
 	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
-	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
+	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
 	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
-	moderateComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
-	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi, isPublicEntry
+	deleteComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
+	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, isPublicEntry
 });
 </script>
 

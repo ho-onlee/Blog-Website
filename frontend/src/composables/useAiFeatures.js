@@ -1,7 +1,7 @@
 import { reactive, ref } from 'vue';
 import { api } from '../storage.js';
 
-export function useAiFeatures({ currentLocale, language, savedSite, draft, selectedPost }) {
+export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	const aiConfig = reactive({ provider: 'ollama', model: 'qwen2.5:3b', archiveEnabled: false, providers: [] });
 	const aiStatus = ref({ state: 'checking', available: false });
 	const aiSettingsError = ref('');
@@ -17,7 +17,6 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft, selec
 	const archiveAnswer = ref('');
 	const archiveCitations = ref([]);
 	const archiveBusy = ref(false);
-	const aiCommentReviews = reactive({});
 
 	async function loadAiSettings() {
 		try {
@@ -124,23 +123,11 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft, selec
 		}
 	}
 
-	async function reviewCommentWithAi(comment) {
-		aiCommentReviews[comment.id] = { loading: true, reason: '', category: '' };
-		try {
-			aiCommentReviews[comment.id] = await api(`/ai/comments/${comment.id}/review`, {
-				method: 'POST',
-				body: JSON.stringify({ postTitle: selectedPost.value?.title, locale: language.value })
-			});
-		} catch (error) {
-			aiCommentReviews[comment.id] = { loading: false, reason: error.message, category: 'review' };
-		}
-	}
-
 	return {
 		aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy,
 		aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
-		archiveQuestion, archiveAnswer, archiveCitations, archiveBusy, aiCommentReviews,
+		archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 		loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-		useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, reviewCommentWithAi
+		useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive
 	};
 }
