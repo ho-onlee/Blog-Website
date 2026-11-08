@@ -16,11 +16,33 @@ Compose refuses to start without a value, and the production API refuses an empt
 
 ## AI Providers
 
-Both Compose files build a separate CPU-only Ollama container. `AI_PROVIDER=ollama` and `AI_MODEL=qwen2.5:3b` are the defaults. On first startup, Ollama downloads the selected model into a persistent Docker volume; allow time, disk space, and RAM for the download and inference. Port `11434` is internal to the Compose network and is not published.
+The Compose files build a separate CPU-only Ollama container. `AI_PROVIDER=ollama` and `AI_MODEL=qwen2.5:3b` are the defaults. On first startup, Ollama downloads the selected model into a persistent Docker volume, or into `OLLAMA_HOST_PATH` when set; allow time, disk space, and RAM for the download and inference. Port `11434` is internal to the Compose network and is not published.
 
 The admin AI settings can switch among Ollama, OpenAI, Anthropic, and Gemini when the selected provider is configured. Set paid-provider API keys only in `.env` for local Compose or in Portainer's stack environment. Keys stay in the API container and are never stored in the database or returned to the frontend. Set `AI_MODEL` to choose the initial model; the admin model field can override it. Provider-specific model defaults can be set with `OPENAI_MODEL`, `ANTHROPIC_MODEL`, and `GEMINI_MODEL`.
 
 The public archive Q&A feature is disabled by default; enable it in AI settings only after checking its rate limit and possible inference costs. Writer AI requests are capped at 30 per account per hour. Public questions are capped at 10 per client IP per hour. Set `TRUST_PROXY` to your private proxy ranges if you use a reverse proxy, so the forwarded visitor IP is used for limits. Do not set it to `*` or `true` unless every request is guaranteed to pass through a trusted proxy.
+
+## Move Data and Models to a Mounted Drive
+
+Set `DATA_HOST_PATH` and `OLLAMA_HOST_PATH` to absolute directories on the Docker host, for example `/mnt/storage/website/data` and `/mnt/storage/website/ollama`. These must be on the actual mounted filesystem, not merely an empty directory on the system disk; on Linux, check with `findmnt -T /mnt/storage`. Ensure the drive is mounted before starting the stack and that Docker can write to both directories. SQLite uses WAL, so keep its data on a local filesystem with working locking and shared memory (such as ext4 or XFS), not an NFS or SMB share.
+
+Changing a path does not move existing data. To migrate an existing deployment:
+
+1. Make and verify a backup using the commands below. Keep the existing data and Docker volume until the new deployment is verified.
+2. On the Docker host, create empty target directories. Stop the API and AI containers, then copy their existing contents, including SQLite sidecar files. For a local Compose deployment, from the project directory:
+
+	```sh
+	mkdir -p /mnt/storage/website/data /mnt/storage/website/ollama
+	docker compose stop api ai
+	docker cp "$(docker compose ps -aq api):/app/data/." /mnt/storage/website/data/
+	docker cp "$(docker compose ps -aq ai):/root/.ollama/." /mnt/storage/website/ollama/
+	```
+
+	For Portainer, stop the API and AI containers, then use `docker cp <api-container-name>:/app/data/. /mnt/storage/website/data/` and `docker cp <ai-container-name>:/root/.ollama/. /mnt/storage/website/ollama/` on the Docker host. Leave the containers stopped until the paths are updated. Do not copy into the existing source directories.
+3. Set `DATA_HOST_PATH` and `OLLAMA_HOST_PATH` in `.env` for local Compose, or in the Portainer stack environment. Keep `DB_NAME` set to the existing database filename. Redeploy the stack (`docker compose up -d` for local Compose).
+4. Confirm the site shows its existing content, the model works, and both containers use the new mounts. Verify backups still work. The old Docker volume still consumes space; only remove it after verification and after confirming no other container uses it. Do not use `docker volume prune`.
+
+Uploads and backups use separate paths; changing the database path does not move them. Keep backups on separate storage where possible.
 
 ## Backups
 
@@ -45,7 +67,7 @@ This stack targets a Portainer **Docker Standalone** environment. It uses absolu
 The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, branch `main`. Keep this repository private: the initial commit contains `backend/data` account, post, and SQLite files. Ignore rules and current deletions do not remove data from Git history. Portainer can deploy from a private repository; do not make it public unless the history is scrubbed first.
 
 1. Commit and push the Portainer stack file and these instructions to `main`. For a private repository, configure Git credentials in Portainer; do not put a GitHub token in this repository.
-2. On the Docker host, create three writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`.
+2. On the Docker host, create writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`. Create a model directory too if setting `OLLAMA_HOST_PATH`.
 3. If migrating an existing site, copy its SQLite database file and matching `uploads` contents into the persistent directories before deploying. Set `DB_NAME` to the copied SQLite filename. Leave the data directory empty for a fresh site; `site.sqlite` is the default filename.
 4. In Portainer, choose **Stacks → Add stack → Git Repository**. Set the repository URL above and reference `refs/heads/main`. Use the default Compose path `docker-compose.yml` (or explicitly enter that filename).
 5. Add these stack environment variables in Portainer:
@@ -53,6 +75,7 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 	- `SIGNUP_CODE`: a private, non-empty invitation code; no minimum length is enforced.
 	- `PUBLIC_URL`: optional canonical public HTTPS URL, such as `https://blog.example.com`; if unset, RSS and sitemap use forwarded request host/protocol.
 	- `DATA_HOST_PATH`: optional absolute data directory; defaults to `/opt/website/data`.
+	- `OLLAMA_HOST_PATH`: optional absolute model directory; defaults to the existing Docker volume.
 	- `DB_NAME`: SQLite filename in the data directory; defaults to `site.sqlite`.
 	- `UPLOADS_HOST_PATH`: optional absolute uploads directory; defaults to `/opt/website/uploads`.
 	- `BACKUP_HOST_PATH`: optional absolute backup directory; defaults to `/opt/website/backups`, preferably on separate storage.

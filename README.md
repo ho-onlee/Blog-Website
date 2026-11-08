@@ -40,7 +40,7 @@ Open the Vite URL shown in the terminal, usually `http://localhost:5173`. The fr
 
 ## AI Setup
 
-The Docker Compose stacks include a separate CPU-only Ollama image in `ai/`. Set `AI_MODEL` in `.env` to choose a model (default: `qwen2.5:3b`). On first startup, Ollama downloads that model into a persistent Docker volume. This can take time and disk space; the API does not publish Ollama's port.
+The Docker Compose stacks include a separate CPU-only Ollama image in `ai/`. Set `AI_MODEL` in `.env` to choose a model (default: `qwen2.5:3b`). On first startup, Ollama downloads that model into a persistent Docker volume. Set `OLLAMA_HOST_PATH` to store models on a mounted drive instead; set `DATA_HOST_PATH` to move the database. See [DEPLOYMENT.md](DEPLOYMENT.md) for migration instructions. This can take time and disk space; the API does not publish Ollama's port.
 
 The admin AI settings can select local Ollama or a configured paid provider: OpenAI, Anthropic, or Google Gemini. Put paid API keys in the server `.env` (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY`) or Portainer stack environment. Keys are never sent to the browser or stored in SQLite. Provider-specific model defaults are set by `OPENAI_MODEL`, `ANTHROPIC_MODEL`, and `GEMINI_MODEL`; the admin model field can override them. `AI_PROVIDER` and `AI_MODEL` set the initial defaults.
 

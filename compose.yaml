@@ -27,7 +27,7 @@ services:
       AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-20000}
       TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}
     volumes:
-      - ./backend/data:/app/data
+      - "${DATA_HOST_PATH:-./backend/data}:/app/data"
       - ./backend/uploads:/app/uploads
       - "${HOST_BACKUP_DIR:-../blog-backups}:/backups"
     expose:
@@ -40,7 +40,7 @@ services:
     environment:
       AI_MODEL: ${AI_MODEL:-qwen2.5:3b}
     volumes:
-      - ollama_models:/root/.ollama
+      - "${OLLAMA_HOST_PATH:-ollama_models}:/root/.ollama"
     expose:
       - "11434"
     restart: unless-stopped
