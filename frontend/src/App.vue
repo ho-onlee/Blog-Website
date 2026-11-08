@@ -32,6 +32,7 @@ const availableLanguages = computed(() => Object.keys(locales).map((code) => ({
 	name: code === 'en' ? currentLocale.value.ui.languageEnglishName : code === 'ko' ? currentLocale.value.ui.languageKoreanName : localeNames[code]
 })));
 const savedSite = ref({ ...defaultSite });
+const siteReady = ref(false);
 const siteNameManagedByEnv = computed(() => savedSite.value.siteNameManagedByEnv === true);
 const site = computed(() => {
 	const translatedSite = currentLocale.value.site;
@@ -250,7 +251,6 @@ function setPageMeta(title, description, image = '') {
 async function loadSite() {
 	try {
 		savedSite.value = { ...defaultSite, ...(await api('/site')) };
-		setPageMeta(site.value.blogName, site.value.tagline);
 	}
 	catch { savedSite.value = { ...defaultSite }; }
 }
@@ -402,7 +402,11 @@ async function openAuthor(authorId, updateHistory = true) {
 }
 
 async function refreshContent() {
-	await Promise.all([loadSite(), loadPosts(), loadLocales()]);
+	const postsLoading = loadPosts();
+	await Promise.all([loadSite(), loadLocales()]);
+	setPageMeta(site.value.blogName, site.value.tagline);
+	siteReady.value = true;
+	await postsLoading;
 }
 
 onMounted(async () => {
@@ -731,7 +735,7 @@ const app = reactive({
 </script>
 
 <template>
-	<div class="site-shell">
+	<div v-if="siteReady" class="site-shell">
 		<SiteHeader :app="app" />
 		<div v-if="notification" class="top-notification" role="alert" aria-live="assertive">
 			<span>{{ notification }}</span>
@@ -755,4 +759,5 @@ const app = reactive({
 		<WriterEditor :app="app" />
 		<SiteSettingsDialog :app="app" />
 	</div>
+	<div v-else class="site-loading" role="status">{{ currentLocale.site.waitingLabel }}</div>
 </template>
