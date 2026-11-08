@@ -13,7 +13,7 @@ const trustedProxyRanges = (process.env.TRUST_PROXY || '').split(',').map((range
 if (trustedProxyRanges.length) app.set('trust proxy', trustedProxyRanges);
 const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 const uploadsDir = path.join(__dirname, 'uploads');
-const settingsDir = process.env.SETTINGS_DIR ? path.resolve(process.env.SETTINGS_DIR) : path.join(__dirname, 'settings');
+const settingsDir = process.env.SETTINGS_DIR ? path.resolve(process.env.SETTINGS_DIR) : path.join(__dirname, '..', 'settings');
 const postsFile = path.join(dataDir, 'posts.json');
 const siteFile = path.join(dataDir, 'site.json');
 const accountsFile = path.join(dataDir, 'accounts.json');

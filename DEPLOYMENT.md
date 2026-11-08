@@ -6,7 +6,7 @@ Set `SITE_NAME` in `.env` or Portainer to choose the site name; the neutral fres
 
 ## Settings Folder
 
-Compose mounts `SETTINGS_HOST_PATH` read-only into the API. It defaults to `./settings` with `compose.yaml` and `/opt/website/settings` with the Portainer stack files. Create the directory on the Docker host and ensure the container can read it. Changes take effect after a browser refresh; no image rebuild is required.
+Compose mounts `SETTINGS_HOST_PATH` read-only into the API. It defaults to `./settings` with `compose.yaml` and `/opt/website/settings` with the Portainer stack files. Local development also reads the project `settings` folder. Create the directory on the Docker host and ensure the container can read it. Changes take effect after a browser refresh; no image rebuild is required.
 
 - Place `favicon.png`, `favicon.ico`, or `favicon.svg` in the folder to replace the bundled favicon. If more than one exists, PNG takes priority, followed by ICO and SVG. Leave `FAVICON_URL` empty to use this file; an explicitly set `FAVICON_URL` takes precedence. Remove an existing `/favicon.svg` value from `.env` or Portainer to enable the mounted favicon.
 - Place translation overrides in `locales/en.json` or `locales/ko.json`. Files may contain only the keys to change; unspecified keys use the bundled language. Content customized in the admin site settings remains unchanged.
