@@ -40,7 +40,7 @@ const app = props.app;
 			<div v-if="app.visiblePosts.length" class="entry-grid">
 				<article v-for="(post, index) in app.visiblePosts" :key="post.id" class="entry-card" :class="{ 'entry-card-featured': index === 0 && !app.searchQuery && !app.selectedTag && !app.selectedMonth }">
 					<button class="card-open" :aria-label="`${app.site.readMoreLabel}: ${post.title}`" @click="app.readPost(post)">
-						<div v-if="post.coverImage" class="card-image-wrap"><img class="card-image" :src="post.coverImage" :alt="post.title" loading="lazy" /><span class="image-arrow" aria-hidden="true">↗</span></div>
+						<div v-if="post.coverImage" class="card-image-wrap"><img class="cover-image-backdrop" :src="post.coverImage" alt="" aria-hidden="true" loading="lazy" /><img class="card-image" :src="post.coverImage" :alt="post.title" loading="lazy" /><span class="image-arrow" aria-hidden="true">↗</span></div>
 						<div v-else class="card-image-wrap card-image-placeholder"><span>{{ app.site.blogName }}</span><i></i></div>
 						<div class="card-body">
 							<div class="card-meta"><time :datetime="post.date">{{ app.formatDate(post.date) }}</time><span class="card-author">{{ post.authorName }}</span><span class="reading-time">{{ app.readingMinutes(post.content) }}{{ app.site.readingTimeSuffix }}</span><span v-if="app.admin && post.status === 'draft'" class="private-badge">{{ app.site.draftLabel }}</span><span v-if="app.admin && post.status === 'scheduled'" class="private-badge">{{ app.site.scheduledLabel }}</span><span v-if="post.visibility === 'private'" class="private-badge">{{ app.site.privateLabel }}</span></div>

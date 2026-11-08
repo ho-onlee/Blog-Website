@@ -11,7 +11,7 @@ const app = props.app;
 			<h1>{{ app.selectedPost.title }}</h1>
 			<div class="post-tags"><span v-for="tag in app.selectedPost.tags" :key="tag">{{ tag }}</span></div>
 		</div>
-		<img v-if="app.selectedPost.coverImage" class="post-cover" :src="app.selectedPost.coverImage" :alt="app.selectedPost.title" />
+		<div v-if="app.selectedPost.coverImage" class="post-cover"><img class="cover-image-backdrop" :src="app.selectedPost.coverImage" alt="" aria-hidden="true" /><img class="cover-image-foreground" :src="app.selectedPost.coverImage" :alt="app.selectedPost.title" /></div>
 		<div class="markdown-content post-content" v-html="app.renderMarkdown(app.selectedPost.content)"></div>
 		<section v-if="app.relatedPosts.length" class="related-section"><h2>{{ app.site.relatedPostsLabel }}</h2><div class="related-list"><button v-for="post in app.relatedPosts" :key="post.id" @click="app.readPost(post)"><span>{{ post.title }}</span><small>{{ post.authorName }}</small></button></div></section>
 		<div v-if="app.isPublicEntry(app.selectedPost)" class="post-share-row"><button class="outline-button" @click="app.sharePost">{{ app.site.shareLabel }} <span aria-hidden="true">↗</span></button><span v-if="app.shareStatus" class="share-status">{{ app.shareStatus }}</span></div>
