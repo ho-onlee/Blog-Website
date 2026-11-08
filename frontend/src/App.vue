@@ -14,7 +14,7 @@ import SiteSettingsDialog from './components/SiteSettingsDialog.vue';
 import { useAiFeatures } from './composables/useAiFeatures.js';
 
 const WriterEditor = defineAsyncComponent(() => import('./components/WriterEditor.vue'));
-const markdown = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const markdown = new MarkdownIt({ html: true, linkify: true, typographer: true });
 // Keep interface translations in JSON so contributors can edit them without changing Vue code.
 const locales = { en: englishLocale, ko: koreanLocale };
 const defaultSite = koreanLocale.site;
