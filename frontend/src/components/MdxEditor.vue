@@ -26,6 +26,7 @@ import {
 	toolbarPlugin
 } from '@mdxeditor/editor';
 import '@mdxeditor/editor/style.css';
+import { api } from '../storage.js';
 import englishLocale from '../locales/en.json';
 import koreanLocale from '../locales/ko.json';
 
@@ -47,13 +48,20 @@ function translateEditor(key, defaultValue, interpolations = {}) {
 	return translated.replace(/\{\{(\w+)\}\}/g, (match, name) => String(interpolations[name] ?? match));
 }
 
+async function uploadImage(file) {
+	const form = new FormData();
+	form.append('image', file);
+	const result = await api('/uploads', { method: 'POST', body: form });
+	return result.url;
+}
+
 const editorPlugins = [
 	headingsPlugin(),
 	listsPlugin(),
 	quotePlugin(),
 	linkPlugin(),
 	linkDialogPlugin(),
-	imagePlugin(),
+	imagePlugin({ imageUploadHandler: uploadImage }),
 	tablePlugin(),
 	codeBlockPlugin(),
 	thematicBreakPlugin(),
