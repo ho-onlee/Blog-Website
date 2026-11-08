@@ -210,6 +210,15 @@ a { color: inherit; text-decoration: none; }
 .markdown-content blockquote { margin: 1.6em 0; padding: 2px 0 2px 22px; border-left: 2px solid var(--coral); color: var(--muted); font-style: italic; }
 .markdown-content a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
 .markdown-content img { display: block; max-width: 100%; height: auto; margin: 2em auto; }
+.post-content img, .post-cover .cover-image-foreground { cursor: zoom-in; }
+.image-viewer { position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; background: #101411f2; color: white; }
+.image-viewer::backdrop { background: #101411f2; }
+.image-viewer-stage { display: flex; width: 100%; height: 100%; overflow: hidden; padding: 24px; cursor: grab; touch-action: none; user-select: none; }
+.image-viewer-stage.is-dragging { cursor: grabbing; }
+.image-viewer-stage img { display: block; flex: none; width: min(100vw - 48px, (100dvh - 48px) * var(--image-aspect)); height: auto; margin: auto; transform: translate(var(--image-x), var(--image-y)) scale(var(--image-zoom)); pointer-events: none; }
+.image-viewer-close { position: fixed; top: max(16px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); z-index: 1; width: 44px; height: 44px; border: 1px solid #ffffff80; border-radius: 50%; background: #101411c9; color: white; font-size: 30px; line-height: 1; cursor: pointer; }
+.image-touch-preview { position: fixed; inset: 0; z-index: 1000; display: flex; padding: 8px; background: #101411f2; pointer-events: none; }
+.image-touch-preview img { width: 100%; height: 100%; object-fit: contain; }
 .markdown-content code { padding: 2px 5px; background: var(--surface-muted); font-family: Consolas, monospace; font-size: .8em; }
 .markdown-content pre { overflow-x: auto; padding: 18px; background: var(--surface-muted); }
 
@@ -428,7 +437,15 @@ a { color: inherit; text-decoration: none; }
 .mdx-editor-heading > div { display: grid; gap: 3px; }
 .mdx-editor-heading small { color: var(--muted); font-size: 11px; font-weight: 400; }
 .autosave-status { flex: 0 0 auto; margin: 0; color: var(--muted); font-size: 11px; font-weight: 400; white-space: nowrap; }
-.mdx-editor-host { min-width: 0; }
+.mdx-editor-wrapper, .mdx-editor-host { min-width: 0; }
+.mdx-image-dialog-overlay { position: fixed; inset: 0; z-index: 20; background: #10141199; }
+.mdx-image-dialog { position: fixed; z-index: 21; top: 50%; left: 50%; width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; transform: translate(-50%, -50%); border: 1px solid var(--line); border-radius: 3px; background: var(--surface); padding: 24px; color: var(--ink); box-shadow: 0 12px 40px #0003; }
+.mdx-image-dialog h2 { margin: 0 0 18px; font-size: 20px; line-height: 1.3; }
+.mdx-image-dialog-description { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.mdx-image-dialog form { display: grid; gap: 12px; }
+.mdx-image-dialog label { font-size: 13px; font-weight: 600; }
+.mdx-image-dialog input[type='file'] { width: 100%; font-size: 13px; }
+.mdx-image-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 .mdx-editor-host .mdxeditor { min-height: 700px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface-editor); color: var(--ink); box-shadow: 0 3px 14px #202b2708; }
 .mdx-editor-host .mdxeditor-toolbar { position: sticky; top: 0; z-index: 1; border-bottom: 1px solid var(--line); background: var(--surface-toolbar); color: var(--ink); padding: 10px 12px; }
 .mdx-editor-host .mdxeditor-toolbar button { min-width: 38px; min-height: 38px; color: var(--ink); font-family: var(--sans); font-size: 14px; }
