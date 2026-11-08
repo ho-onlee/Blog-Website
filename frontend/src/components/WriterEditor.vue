@@ -72,7 +72,7 @@ function handleTagInputKeydown(event) {
 				</aside>
 				<section class="editor-writing-area">
 					<div v-if="app.aiSuggestion" class="ai-suggestion-preview" :aria-label="app.currentLocale.ai.suggestionLabel">{{ app.aiSuggestion }}</div>
-					<MdxEditor v-model="app.draft.content" :placeholder="app.site.markdownPlaceholder" :locale="app.language" />
+					<MdxEditor v-model="app.draft.content" :placeholder="app.site.markdownPlaceholder" :locale="app.language" :translations="app.currentLocale.mdx" />
 				</section>
 			</div>
 			<p v-if="app.editorError" class="form-error">{{ app.editorError }}</p>

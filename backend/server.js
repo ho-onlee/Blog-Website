@@ -13,6 +13,7 @@ const trustedProxyRanges = (process.env.TRUST_PROXY || '').split(',').map((range
 if (trustedProxyRanges.length) app.set('trust proxy', trustedProxyRanges);
 const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 const uploadsDir = path.join(__dirname, 'uploads');
+const settingsDir = process.env.SETTINGS_DIR ? path.resolve(process.env.SETTINGS_DIR) : path.join(__dirname, 'settings');
 const postsFile = path.join(dataDir, 'posts.json');
 const siteFile = path.join(dataDir, 'site.json');
 const accountsFile = path.join(dataDir, 'accounts.json');
@@ -351,6 +352,49 @@ function getPublicBaseUrl(request) {
 
 app.get('/api/health', (request, response) => response.json({ ok: true }));
 
+app.get('/api/locales', async (request, response, next) => {
+	try {
+		const localeDir = path.join(settingsDir, 'locales');
+		const files = await fs.readdir(localeDir).catch((error) => {
+			if (error.code === 'ENOENT') return [];
+			throw error;
+		});
+		const locales = {};
+		for (const file of files) {
+			if (!/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*\.json$/.test(file)) continue;
+			try {
+				Intl.getCanonicalLocales(file.slice(0, -5));
+				const locale = JSON.parse(await fs.readFile(path.join(localeDir, file), 'utf8'));
+				if (locale && typeof locale === 'object' && !Array.isArray(locale)) locales[file.slice(0, -5)] = locale;
+			} catch (error) {
+				console.error(`Unable to load locale ${file}:`, error.message);
+			}
+		}
+		response.set('Cache-Control', 'no-store').json(locales);
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.get('/api/favicon', async (request, response, next) => {
+	try {
+		for (const extension of ['png', 'ico', 'svg']) {
+			const filename = path.join(settingsDir, `favicon.${extension}`);
+			try {
+				await fs.access(filename);
+				response.set('Cache-Control', 'no-cache');
+				response.set('Content-Security-Policy', "default-src 'none'; sandbox");
+				return response.sendFile(filename);
+			} catch (error) {
+				if (error.code !== 'ENOENT') throw error;
+			}
+		}
+		response.redirect('/favicon.svg');
+	} catch (error) {
+		next(error);
+	}
+});
+
 app.get('/api/site', async (request, response, next) => {
 	try {
 		const site = { ...defaultSite, ...(await readJson(siteFile, {})) };
@@ -358,7 +402,7 @@ app.get('/api/site', async (request, response, next) => {
 		response.json({
 			...site,
 			siteNameManagedByEnv: Boolean(process.env.SITE_NAME?.trim()),
-			faviconUrl: process.env.FAVICON_URL || '/favicon.svg'
+			faviconUrl: process.env.FAVICON_URL || '/api/favicon'
 		});
 	} catch (error) {
 		next(error);
@@ -409,7 +453,7 @@ app.put('/api/site', requireAdmin, async (request, response, next) => {
 		response.json({
 			...site,
 			siteNameManagedByEnv: Boolean(process.env.SITE_NAME?.trim()),
-			faviconUrl: process.env.FAVICON_URL || '/favicon.svg'
+			faviconUrl: process.env.FAVICON_URL || '/api/favicon'
 		});
 	} catch (error) {
 		next(error);

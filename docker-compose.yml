@@ -8,9 +8,10 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATA_DIR: /app/data
+      SETTINGS_DIR: /app/settings
       DB_NAME: ${DB_NAME:-site.sqlite}
       SITE_NAME: ${SITE_NAME:-}
-      FAVICON_URL: ${FAVICON_URL:-/favicon.svg}
+      FAVICON_URL: ${FAVICON_URL:-}
       SIGNUP_CODE: ${SIGNUP_CODE:?Set a random SIGNUP_CODE of at least 32 characters}
       PUBLIC_URL: ${PUBLIC_URL:-}
       BACKUP_DIR: /backups
@@ -28,6 +29,7 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}
     volumes:
       - "${DATA_HOST_PATH:-/opt/website/data}:/app/data"
+      - "${SETTINGS_HOST_PATH:-/opt/website/settings}:/app/settings:ro"
       - "${UPLOADS_HOST_PATH:-/opt/website/uploads}:/app/uploads"
       - "${BACKUP_HOST_PATH:-/opt/website/backups}:/backups"
     expose:

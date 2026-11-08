@@ -7,7 +7,7 @@ const app = props.app;
 	<header class="topbar">
 		<a class="wordmark" href="#home" @click.prevent="app.goHome">{{ app.site.blogName }}<span class="wordmark-dot">.</span></a>
 		<div class="top-actions">
-			<select v-model="app.language" class="language-select" :aria-label="app.currentLocale.ui.languageLabel"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select>
+			<select v-model="app.language" class="language-select" :aria-label="app.currentLocale.ui.languageLabel"><option v-for="locale in app.availableLanguages" :key="locale.code" :value="locale.code">{{ locale.name }}</option></select>
 			<button class="theme-toggle" type="button" :aria-label="app.themeToggleLabel" :title="app.themeToggleLabel" :aria-pressed="app.theme === 'dark'" @click="app.toggleTheme"><span aria-hidden="true">{{ app.theme === 'dark' ? '☀' : '☾' }}</span></button>
 			<template v-if="app.admin">
 				<button class="profile-button" @click="app.openProfile">{{ app.admin.displayName || app.admin.username }}</button>

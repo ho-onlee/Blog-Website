@@ -33,7 +33,8 @@ import koreanLocale from '../locales/ko.json';
 const props = defineProps({
 	modelValue: { type: String, default: '' },
 	placeholder: { type: String, default: '' },
-	locale: { type: String, default: 'ko' }
+	locale: { type: String, default: 'ko' },
+	translations: { type: Object, default: null }
 });
 const emit = defineEmits(['update:modelValue']);
 const host = ref(null);
@@ -43,7 +44,7 @@ let reactRoot;
 
 function translateEditor(key, defaultValue, interpolations = {}) {
 	// Editor toolbar labels come from the same editable JSON files as the rest of the UI.
-	const translations = locales[props.locale]?.mdx || locales.en.mdx;
+	const translations = props.translations || locales[props.locale]?.mdx || locales.en.mdx;
 	const translated = translations[key] || translations[defaultValue] || defaultValue;
 	return translated.replace(/\{\{(\w+)\}\}/g, (match, name) => String(interpolations[name] ?? match));
 }
@@ -111,6 +112,7 @@ watch(() => props.modelValue, (value) => {
 });
 
 watch(() => props.locale, renderEditor);
+watch(() => props.translations, renderEditor);
 
 onBeforeUnmount(() => reactRoot?.unmount());
 </script>

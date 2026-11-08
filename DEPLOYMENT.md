@@ -2,7 +2,25 @@
 
 ## Site Name and Favicon
 
-Set `SITE_NAME` in `.env` or Portainer to choose the site name; the neutral fresh-install default is `website`. When `SITE_NAME` is set, it overrides any saved database name and the admin site-name field is locked. If it is empty, the saved site name is preserved. `FAVICON_URL` accepts `/favicon.svg` or an absolute image URL; the repository includes a generic book favicon.
+Set `SITE_NAME` in `.env` or Portainer to choose the site name; the neutral fresh-install default is `website`. When `SITE_NAME` is set, it overrides any saved database name and the admin site-name field is locked. If it is empty, the saved site name is preserved.
+
+## Settings Folder
+
+Compose mounts `SETTINGS_HOST_PATH` read-only into the API. It defaults to `./settings` with `compose.yaml` and `/opt/website/settings` with the Portainer stack files. Create the directory on the Docker host and ensure the container can read it. Changes take effect after a browser refresh; no image rebuild is required.
+
+- Place `favicon.png`, `favicon.ico`, or `favicon.svg` in the folder to replace the bundled favicon. If more than one exists, PNG takes priority, followed by ICO and SVG. Leave `FAVICON_URL` empty to use this file; an explicitly set `FAVICON_URL` takes precedence. Remove an existing `/favicon.svg` value from `.env` or Portainer to enable the mounted favicon.
+- Place translation overrides in `locales/en.json` or `locales/ko.json`. Files may contain only the keys to change; unspecified keys use the bundled language. Content customized in the admin site settings remains unchanged.
+- Add a language with a lowercase BCP 47 filename such as `locales/fr.json` or `locales/pt-br.json`. Add a top-level `name` for the language selector and the same translation sections as the English file. Missing keys fall back to English. For example:
+
+```json
+{
+	"name": "Francais",
+	"site": { "signInLabel": "Connexion" },
+	"mdx": { "toolbar.image": "Inserer une image" }
+}
+```
+
+The bundled translation files in `frontend/src/locales` provide the full list of keys. Locale files and the favicon are public: do not put credentials or private content in them. Back up the settings folder separately from the database and uploads.
 
 ## Signup Secret
 
@@ -67,7 +85,7 @@ This stack targets a Portainer **Docker Standalone** environment. It uses absolu
 The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, branch `main`. Keep this repository private: the initial commit contains `backend/data` account, post, and SQLite files. Ignore rules and current deletions do not remove data from Git history. Portainer can deploy from a private repository; do not make it public unless the history is scrubbed first.
 
 1. Commit and push the Portainer stack file and these instructions to `main`. For a private repository, configure Git credentials in Portainer; do not put a GitHub token in this repository.
-2. On the Docker host, create writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`. Create a model directory too if setting `OLLAMA_HOST_PATH`.
+2. On the Docker host, create writable directories, for example `/opt/website/data`, `/opt/website/uploads`, and `/mnt/backups/website`, plus a readable `/opt/website/settings` directory. Create a model directory too if setting `OLLAMA_HOST_PATH`.
 3. If migrating an existing site, copy its SQLite database file and matching `uploads` contents into the persistent directories before deploying. Set `DB_NAME` to the copied SQLite filename. Leave the data directory empty for a fresh site; `site.sqlite` is the default filename.
 4. In Portainer, choose **Stacks → Add stack → Git Repository**. Set the repository URL above and reference `refs/heads/main`. Use the default Compose path `docker-compose.yml` (or explicitly enter that filename).
 5. Add these stack environment variables in Portainer:
@@ -75,13 +93,14 @@ The configured remote is `https://github.com/ho-onlee/Seohakru.website.git`, bra
 	- `SIGNUP_CODE`: a private, non-empty invitation code; no minimum length is enforced.
 	- `PUBLIC_URL`: optional canonical public HTTPS URL, such as `https://blog.example.com`; if unset, RSS and sitemap use forwarded request host/protocol.
 	- `DATA_HOST_PATH`: optional absolute data directory; defaults to `/opt/website/data`.
+	- `SETTINGS_HOST_PATH`: optional absolute settings directory; defaults to `/opt/website/settings`.
 	- `OLLAMA_HOST_PATH`: optional absolute model directory; defaults to the existing Docker volume.
 	- `DB_NAME`: SQLite filename in the data directory; defaults to `site.sqlite`.
 	- `UPLOADS_HOST_PATH`: optional absolute uploads directory; defaults to `/opt/website/uploads`.
 	- `BACKUP_HOST_PATH`: optional absolute backup directory; defaults to `/opt/website/backups`, preferably on separate storage.
 	- `WEB_PORT`: optional host port for the HTTP web container; defaults to `8080`.
 	- `SITE_NAME`: optional site-name override; the fresh-install fallback is `website`.
-	- `FAVICON_URL`: optional favicon path or absolute URL; defaults to `/favicon.svg`.
+	- `FAVICON_URL`: optional favicon path or absolute URL; overrides the settings folder favicon when set.
 	- `AI_PROVIDER`: optional default provider (`ollama`, `openai`, `anthropic`, or `gemini`); defaults to `ollama`.
 	- `AI_MODEL`: optional default model; defaults to `qwen2.5:3b` and is also pulled by the local Ollama service.
 	- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`: optional paid-provider secrets. Only configure providers you intend to use.

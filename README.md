@@ -63,7 +63,7 @@ Each file contains these sections:
 - `ui`: accessibility labels and small interface-only strings
 - `mdx`: MDXEditor toolbar, dialog, and accessibility text
 
-Keep the key structure in both files aligned. Existing customized site copy is preserved when a user changes language. For a new locale, create another file with the same sections, import it in `frontend/src/App.vue` and `frontend/src/components/MdxEditor.vue`, add it to the locale lookup and selector, and map its language code in the system-language detector.
+Keep the key structure in both files aligned. Existing customized site copy is preserved when a user changes language. Docker deployments can supply translation overrides and additional languages through the mounted settings folder without rebuilding; see [DEPLOYMENT.md](DEPLOYMENT.md#settings-folder).
 
 After editing translations, validate with:
 

@@ -16,7 +16,8 @@ import { useAiFeatures } from './composables/useAiFeatures.js';
 const WriterEditor = defineAsyncComponent(() => import('./components/WriterEditor.vue'));
 const markdown = new MarkdownIt({ html: true, linkify: true, typographer: true });
 // Keep interface translations in JSON so contributors can edit them without changing Vue code.
-const locales = { en: englishLocale, ko: koreanLocale };
+const locales = reactive({ en: englishLocale, ko: koreanLocale });
+const localeNames = reactive({ en: 'English', ko: '한국어' });
 const defaultSite = koreanLocale.site;
 
 const languageStorageKey = 'seohakru_language';
@@ -26,6 +27,10 @@ const systemLanguage = systemLocale.toLowerCase().startsWith('ko') ? 'ko' : 'en'
 const savedLanguage = localStorage.getItem(languageStorageKey);
 const language = ref(savedLanguage === 'ko' ? 'ko' : savedLanguage === 'en' ? 'en' : systemLanguage);
 const currentLocale = computed(() => locales[language.value] || locales.en);
+const availableLanguages = computed(() => Object.keys(locales).map((code) => ({
+	code,
+	name: code === 'en' ? currentLocale.value.ui.languageEnglishName : code === 'ko' ? currentLocale.value.ui.languageKoreanName : localeNames[code]
+})));
 const savedSite = ref({ ...defaultSite });
 const siteNameManagedByEnv = computed(() => savedSite.value.siteNameManagedByEnv === true);
 const site = computed(() => {
@@ -44,9 +49,34 @@ function fieldGroupHeading(heading) {
 
 watch(language, (value) => {
 	localStorage.setItem(languageStorageKey, value);
-	document.documentElement.lang = value === 'ko' ? 'ko' : 'en';
+	document.documentElement.lang = value;
 });
-document.documentElement.lang = language.value === 'ko' ? 'ko' : 'en';
+document.documentElement.lang = language.value;
+
+function mergeTranslations(base, overrides) {
+	return Object.fromEntries(Object.entries(base).map(([key, value]) => {
+		const replacement = Object.hasOwn(overrides, key) ? overrides[key] : undefined;
+		if (value && typeof value === 'object' && !Array.isArray(value)) {
+			return [key, mergeTranslations(value, replacement && typeof replacement === 'object' && !Array.isArray(replacement) ? replacement : {})];
+		}
+		return [key, typeof replacement === 'string' ? replacement : value];
+	}));
+}
+
+async function loadLocales() {
+	try {
+		const customLocales = await api('/locales');
+		for (const [code, translation] of Object.entries(customLocales)) {
+			if (!translation || typeof translation !== 'object' || Array.isArray(translation)) continue;
+			locales[code] = mergeTranslations(code === 'ko' ? koreanLocale : englishLocale, translation);
+			localeNames[code] = typeof translation.name === 'string' && translation.name.trim() ? translation.name.trim() : code;
+		}
+		const preferred = (savedLanguage || systemLocale).toLowerCase();
+		const preferredBase = preferred.split('-')[0];
+		if (Object.hasOwn(locales, preferred)) language.value = preferred;
+		else if (Object.hasOwn(locales, preferredBase)) language.value = preferredBase;
+	} catch {}
+}
 
 const posts = ref([]);
 const admin = ref(null);
@@ -372,7 +402,7 @@ async function openAuthor(authorId, updateHistory = true) {
 }
 
 async function refreshContent() {
-	await Promise.all([loadSite(), loadPosts()]);
+	await Promise.all([loadSite(), loadPosts(), loadLocales()]);
 }
 
 onMounted(async () => {
@@ -674,18 +704,18 @@ function goHome() {
 }
 
 function formatDate(value) {
-	const locale = language.value === 'ko' ? 'ko-KR' : 'en-US';
+	const locale = Intl.DateTimeFormat.supportedLocalesOf([language.value])[0] || 'en-US';
 	return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${value}T12:00:00`));
 }
 
 function formatMonth(value) {
 	const [year, month] = value.split('-').map(Number);
-	const locale = language.value === 'ko' ? 'ko-KR' : 'en-US';
+	const locale = Intl.DateTimeFormat.supportedLocalesOf([language.value])[0] || 'en-US';
 	return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(new Date(year, month - 1, 1));
 }
 
 const app = reactive({
-	site, currentLocale, language, theme, themeToggleLabel, admin, isAdmin, authoredPostCount,
+	site, currentLocale, language, availableLanguages, theme, themeToggleLabel, admin, isAdmin, authoredPostCount,
 	view, posts, authorPage, members, analytics, selectedPost, relatedPosts, allTags, matchingPosts, visiblePosts, archiveMonths,
 	searchQuery, selectedTag, selectedMonth, postLimit, selectedPostId, comments, commentNotice, commentDraft, shareStatus,
 	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
