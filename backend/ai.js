@@ -17,7 +17,8 @@ function getProvider(providerId) {
 }
 
 function getDefaultModel(providerId) {
-	return process.env[`${providerId.toUpperCase()}_MODEL`] || process.env.AI_MODEL || defaultModels[providerId];
+	const initialProvider = process.env.AI_PROVIDER || 'ollama';
+	return process.env[`${providerId.toUpperCase()}_MODEL`] || (providerId === initialProvider ? process.env.AI_MODEL : '') || defaultModels[providerId];
 }
 
 function getSettings(site = {}) {

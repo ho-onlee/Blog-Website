@@ -47,7 +47,7 @@ const defaultSite = {
 	loginPrompt: '이미 계정이 있나요? 로그인하세요.',
 	deleteConfirm: '이 글을 삭제할까요? 삭제하면 되돌릴 수 없습니다.',
 	uploadingLabel: '이미지 업로드 중…',
-	uploadHint: '이미지 파일 · 최대 5MB',
+	uploadHint: '이미지 파일 · 최대 50MB',
 	chooseImageLabel: '이미지 선택',
 	removeImageLabel: '이미지 제거',
 	titlePlaceholder: '글 제목을 입력하세요',
@@ -955,7 +955,7 @@ const upload = multer({
 		destination: uploadsDir,
 		filename: (request, file, callback) => callback(null, `${crypto.randomUUID()}${imageTypes.get(file.mimetype) || ''}`)
 	}),
-	limits: { fileSize: 5 * 1024 * 1024 },
+	limits: { fileSize: 50 * 1024 * 1024 },
 	fileFilter: (request, file, callback) => callback(null, imageTypes.has(file.mimetype))
 });
 

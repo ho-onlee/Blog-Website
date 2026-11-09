@@ -4,6 +4,10 @@
 
 Set `SITE_NAME` in `.env` or Portainer to choose the site name; the neutral fresh-install default is `website`. When `SITE_NAME` is set, it overrides any saved database name and the admin site-name field is locked. If it is empty, the saved site name is preserved.
 
+## Image Uploads
+
+Cover and post images may be up to 50 MiB. The web container allows 51 MiB for multipart overhead. If using another reverse proxy or CDN, configure its request-body limit to at least 51 MiB as well.
+
 ## Settings Folder
 
 Compose mounts `SETTINGS_HOST_PATH` read-only into the API. It defaults to `./settings` with `compose.yaml` and `/opt/website/settings` with the Portainer stack files. Local development also reads the project `settings` folder. Create the directory on the Docker host and ensure the container can read it. Changes take effect after a browser refresh; no image rebuild is required.

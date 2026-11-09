@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --env-file=../.env server.js",
+    "test": "node --test",
     "backup": "node scripts/backup.js",
     "backup:verify": "node scripts/verify-backup.js"
   },

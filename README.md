@@ -8,6 +8,7 @@ Blog-Website is a personal publishing site with author accounts, public and priv
 - English and Korean interface; the initial language follows the browser's first preferred language
 - Author profiles, admin/member management, and post scheduling
 - MDX writing, revisions, cover images, SEO fields, comments, RSS, and sitemap
+- JPEG, PNG, WebP, and GIF image uploads up to 50 MiB
 - SQLite storage with persistent sessions
 - Light and dark themes
 - Optional local Ollama writing, metadata, translation, public archive Q&A, and comment-review assistance

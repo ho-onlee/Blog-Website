@@ -13,10 +13,15 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	const aiAssistantError = ref('');
 	const aiAssistantBusy = ref(false);
 	const aiMetadataBusy = ref(false);
+	const aiMetadataError = ref('');
 	const archiveQuestion = ref('');
 	const archiveAnswer = ref('');
 	const archiveCitations = ref([]);
 	const archiveBusy = ref(false);
+	let aiRequestId = 0;
+	let metadataRequestId = 0;
+	let suggestionAction = '';
+	let suggestionSource = '';
 
 	async function loadAiSettings() {
 		try {
@@ -64,25 +69,32 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	}
 
 	async function runAiAction() {
+		const requestId = ++aiRequestId;
+		const action = aiAction.value;
+		const source = draft.content;
 		aiAssistantBusy.value = true;
 		aiAssistantError.value = '';
 		aiSuggestion.value = '';
 		try {
-			const request = aiAction.value === 'translate'
+			const request = action === 'translate'
 				? api('/ai/translate', { method: 'POST', body: JSON.stringify({ content: draft.content, targetLanguage: aiTargetLanguage.value }) })
-				: api('/ai/assist', { method: 'POST', body: JSON.stringify({ action: aiAction.value, title: draft.title, content: draft.content, locale: language.value }) });
+				: api('/ai/assist', { method: 'POST', body: JSON.stringify({ action, title: draft.title, content: draft.content, locale: language.value }) });
 			const result = await request;
+			if (requestId !== aiRequestId) return;
+			suggestionAction = action;
+			suggestionSource = source;
 			aiSuggestion.value = result.text;
 		} catch (error) {
-			aiAssistantError.value = error.message;
+			if (requestId === aiRequestId) aiAssistantError.value = error.message;
 		} finally {
-			aiAssistantBusy.value = false;
+			if (requestId === aiRequestId) aiAssistantBusy.value = false;
 		}
 	}
 
 	function useAiSuggestion() {
 		if (!aiSuggestion.value) return;
-		draft.content = aiAction.value === 'continue' && draft.content
+		if (suggestionAction !== 'continue' && draft.content !== suggestionSource && !window.confirm(currentLocale.value.ai.draftChangedConfirm)) return;
+		draft.content = suggestionAction === 'continue' && draft.content
 			? `${draft.content.trimEnd()}\n\n${aiSuggestion.value}`
 			: aiSuggestion.value;
 		aiSuggestion.value = '';
@@ -92,19 +104,33 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 		aiSuggestion.value = '';
 	}
 
-	async function generateAiMetadata() {
-		aiMetadataBusy.value = true;
+	function resetAiWriting() {
+		aiRequestId += 1;
+		metadataRequestId += 1;
+		suggestionAction = '';
+		suggestionSource = '';
+		aiSuggestion.value = '';
 		aiAssistantError.value = '';
+		aiAssistantBusy.value = false;
+		aiMetadataError.value = '';
+		aiMetadataBusy.value = false;
+	}
+
+	async function generateAiMetadata() {
+		const requestId = ++metadataRequestId;
+		aiMetadataBusy.value = true;
+		aiMetadataError.value = '';
 		try {
 			const result = await api('/ai/metadata', { method: 'POST', body: JSON.stringify({ title: draft.title, content: draft.content, locale: language.value }) });
+			if (requestId !== metadataRequestId) return;
 			if (!draft.title) draft.title = result.title;
 			draft.tags = result.tags.join(', ');
 			draft.seoTitle = result.seoTitle;
 			draft.seoDescription = result.seoDescription || result.summary;
 		} catch (error) {
-			aiAssistantError.value = error.message;
+			if (requestId === metadataRequestId) aiMetadataError.value = error.message;
 		} finally {
-			aiMetadataBusy.value = false;
+			if (requestId === metadataRequestId) aiMetadataBusy.value = false;
 		}
 	}
 
@@ -125,9 +151,9 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 
 	return {
 		aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy,
-		aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
+		aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError,
 		archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 		loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-		useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive
+		useAiSuggestion, dismissAiSuggestion, resetAiWriting, generateAiMetadata, askPublicArchive
 	};
 }

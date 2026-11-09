@@ -160,10 +160,10 @@ const isAdmin = computed(() => admin.value?.role === 'admin');
 const aiFeatures = useAiFeatures({ currentLocale, language, savedSite, draft });
 const {
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy,
-	aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy,
+	aiAction, aiTargetLanguage, aiSuggestion, aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError,
 	archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	loadAiSettings, changeAiProvider, checkAiStatus, saveAiSettings, runAiAction,
-	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive
+	useAiSuggestion, dismissAiSuggestion, resetAiWriting, generateAiMetadata, askPublicArchive
 } = aiFeatures;
 const authoredPostCount = computed(() => posts.value.filter((post) => post.authorId === admin.value?.id).length);
 const relatedPosts = computed(() => {
@@ -251,6 +251,7 @@ function setPageMeta(title, description, image = '') {
 async function loadSite() {
 	try {
 		savedSite.value = { ...defaultSite, ...(await api('/site')) };
+		if (['이미지 파일 · 최대 5MB', 'Image file · up to 5 MB'].includes(savedSite.value.uploadHint)) savedSite.value.uploadHint = defaultSite.uploadHint;
 	}
 	catch { savedSite.value = { ...defaultSite }; }
 }
@@ -472,6 +473,7 @@ async function logout() {
 }
 
 function openEditor(post = null) {
+	resetAiWriting();
 	editorReturnView.value = view.value === 'entry' ? 'entry' : view.value === 'editor' ? editorReturnView.value : view.value;
 	editingId.value = post?.id || null;
 	const initialDraft = post ? {
@@ -503,11 +505,13 @@ function openEditor(post = null) {
 }
 
 function cancelEditor() {
+	resetAiWriting();
 	view.value = editorReturnView.value;
 	window.scrollTo({ top: 0 });
 }
 
 async function savePost(statusOverride = null) {
+	if (busy.value || uploadBusy.value) return;
 	busy.value = true;
 	editorError.value = '';
 	if (typeof statusOverride === 'string') draft.status = statusOverride;
@@ -624,16 +628,23 @@ async function deletePost() {
 async function uploadCover(event) {
 	const file = event.target.files?.[0];
 	if (!file) return;
+	if (uploadBusy.value || busy.value) {
+		event.target.value = '';
+		return;
+	}
 	uploadBusy.value = true;
 	editorError.value = '';
 	const form = new FormData();
 	form.append('image', file);
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 120000);
 	try {
-		const result = await api('/uploads', { method: 'POST', body: form });
+		const result = await api('/uploads', { method: 'POST', body: form, signal: controller.signal });
 		draft.coverImage = result.url;
 	} catch (error) {
-		editorError.value = error.message;
+		editorError.value = error.name === 'AbortError' ? currentLocale.value.mdx['uploadImage.uploadError'] : error.message;
 	} finally {
+		clearTimeout(timeout);
 		uploadBusy.value = false;
 		event.target.value = '';
 	}
@@ -725,7 +736,7 @@ const app = reactive({
 	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
 	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
-	aiAssistantError, aiAssistantBusy, aiMetadataBusy, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
+	aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
 	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
@@ -735,7 +746,7 @@ const app = reactive({
 </script>
 
 <template>
-	<div v-if="siteReady" class="site-shell">
+	<div v-if="siteReady" class="site-shell" :inert="uploadBusy">
 		<SiteHeader :app="app" />
 		<div v-if="notification" class="top-notification" role="alert" aria-live="assertive">
 			<span>{{ notification }}</span>

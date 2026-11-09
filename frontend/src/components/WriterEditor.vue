@@ -1,11 +1,18 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import MdxEditor from './MdxEditor.vue';
 
 const props = defineProps({ app: { type: Object, required: true } });
 const app = props.app;
+const coverInput = ref(null);
+const uploadStatus = ref(null);
 const tagInput = ref('');
 const tagInputFocused = ref(false);
+watch(() => app.uploadBusy, async (uploading) => {
+	await nextTick();
+	if (uploading) uploadStatus.value?.focus();
+	else if (app.view === 'editor') coverInput.value?.focus();
+});
 const draftTags = computed(() => app.draft.tags.split(',').map((tag) => tag.trim()).filter(Boolean));
 const tagSuggestions = computed(() => {
 	const query = tagInput.value.trim().toLowerCase();
@@ -66,8 +73,8 @@ function handleTagInputKeydown(event) {
 						<label>{{ app.site.statusLabel }}<select v-model="app.draft.status"><option value="published">{{ app.site.publishedLabel }}</option><option value="draft">{{ app.site.draftLabel }}</option><option value="scheduled">{{ app.site.scheduledLabel }}</option></select></label>
 					</div>
 					<label v-if="app.draft.status === 'scheduled'">{{ app.site.scheduleLabel }}<input v-model="app.draft.scheduledAt" type="datetime-local" required /></label>
-					<div class="full-editor-cover"><label>{{ app.site.coverLabel }}</label><div v-if="app.draft.coverImage" class="cover-preview"><img class="cover-image-backdrop" :src="app.draft.coverImage" alt="" aria-hidden="true" /><img class="cover-image-foreground" :src="app.draft.coverImage" :alt="app.draft.title || app.site.coverLabel" /><button class="text-action" type="button" @click="app.draft.coverImage = ''">{{ app.site.removeImageLabel }}</button></div><p v-else class="cover-empty">{{ app.site.uploadHint }}</p><div class="upload-row"><label class="upload-button">{{ app.site.chooseImageLabel }}<input class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" @change="app.uploadCover" /></label></div></div>
-					<details class="seo-editor"><summary>{{ app.site.seoPreviewLabel }}</summary><button class="text-action" type="button" :disabled="app.aiMetadataBusy" @click="app.generateAiMetadata">{{ app.aiMetadataBusy ? app.currentLocale.ai.metadataGenerating : app.currentLocale.ai.metadataAction }}</button><label>{{ app.site.seoTitleLabel }}<input v-model="app.draft.seoTitle" maxlength="180" :placeholder="app.draft.title || app.site.titlePlaceholder" /></label><label>{{ app.site.seoDescriptionLabel }}<textarea v-model="app.draft.seoDescription" rows="2" maxlength="300" :placeholder="app.postSummary(app.draft.content)" /></label></details>
+					<div class="full-editor-cover"><label>{{ app.site.coverLabel }}</label><div v-if="app.draft.coverImage" class="cover-preview"><img class="cover-image-backdrop" :src="app.draft.coverImage" alt="" aria-hidden="true" /><img class="cover-image-foreground" :src="app.draft.coverImage" :alt="app.draft.title || app.site.coverLabel" /><button class="text-action" type="button" @click="app.draft.coverImage = ''">{{ app.site.removeImageLabel }}</button></div><p v-else class="cover-empty">{{ app.site.uploadHint }}</p><div class="upload-row"><label class="upload-button">{{ app.site.chooseImageLabel }}<input ref="coverInput" class="file-input-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" :disabled="app.uploadBusy || app.busy" @change="app.uploadCover" /></label></div></div>
+					<details class="seo-editor"><summary>{{ app.site.seoPreviewLabel }}</summary><button class="text-action" type="button" :disabled="app.aiMetadataBusy" @click="app.generateAiMetadata">{{ app.aiMetadataBusy ? app.currentLocale.ai.metadataGenerating : app.currentLocale.ai.metadataAction }}</button><p v-if="app.aiMetadataError" class="form-error" role="alert">{{ app.aiMetadataError }}</p><label>{{ app.site.seoTitleLabel }}<input v-model="app.draft.seoTitle" maxlength="180" :placeholder="app.draft.title || app.site.titlePlaceholder" /></label><label>{{ app.site.seoDescriptionLabel }}<textarea v-model="app.draft.seoDescription" rows="2" maxlength="300" :placeholder="app.postSummary(app.draft.content)" /></label></details>
 					<details v-if="app.editingId" class="revision-panel"><summary>{{ app.site.revisionsLabel }} · {{ app.revisions.length }}</summary><p v-if="!app.revisions.length">{{ app.site.noRevisionsLabel }}</p><ol v-else><li v-for="revision in app.revisions" :key="revision.id"><time :datetime="revision.createdAt">{{ app.formatDate(revision.createdAt.slice(0, 10)) }}</time><span>{{ revision.title }}</span><button type="button" class="text-action" @click="app.restoreRevision(revision)">{{ app.site.restoreLabel }}</button></li></ol></details>
 				</aside>
 				<section class="editor-writing-area">
@@ -79,12 +86,11 @@ function handleTagInputKeydown(event) {
 			<div class="full-editor-actions">
 				<div class="editor-action-group editor-action-start">
 					<button v-if="app.editingId" class="delete-button" type="button" @click="app.deletePost">{{ app.site.deleteLabel }}</button>
-					<button class="outline-button" type="button" :disabled="app.busy" @click="app.savePost('draft')">{{ app.site.draftLabel }}</button>
 					<p v-if="app.autosaveStatus" class="autosave-status" aria-live="polite">{{ app.autosaveStatus }}</p>
 				</div>
 				<div v-if="app.admin" class="editor-ai-actions" :aria-label="app.currentLocale.ai.editorHeading">
-					<select v-model="app.aiAction" :aria-label="app.currentLocale.ai.actionLabel"><option v-for="(label, action) in app.currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select>
-					<select v-if="app.aiAction === 'translate'" v-model="app.aiTargetLanguage" :aria-label="app.currentLocale.ai.targetLanguage"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select>
+					<select v-model="app.aiAction" :disabled="app.aiAssistantBusy || !!app.aiSuggestion" :aria-label="app.currentLocale.ai.actionLabel"><option v-for="(label, action) in app.currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select>
+					<select v-if="app.aiAction === 'translate'" v-model="app.aiTargetLanguage" :disabled="app.aiAssistantBusy || !!app.aiSuggestion" :aria-label="app.currentLocale.ai.targetLanguage"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select>
 					<button class="ai-generate-button" type="button" :disabled="app.aiAssistantBusy" :aria-label="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" :title="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" @click="app.runAiAction"><span aria-hidden="true">✦</span></button>
 					<template v-if="app.aiSuggestion">
 						<button class="ai-suggestion-action accept" type="button" :aria-label="app.currentLocale.ai.useSuggestion" :title="app.currentLocale.ai.useSuggestion" @click="app.useAiSuggestion">✓</button>
@@ -98,5 +104,8 @@ function handleTagInputKeydown(event) {
 				</div>
 			</div>
 		</form>
+	</Teleport>
+	<Teleport to="body">
+		<div v-if="app.uploadBusy" ref="uploadStatus" class="cover-upload-overlay" role="status" aria-live="polite" tabindex="-1"><span class="cover-upload-spinner" aria-hidden="true"></span><span>{{ app.site.uploadingLabel }}</span></div>
 	</Teleport>
 </template>
