@@ -80,6 +80,13 @@ async function loadLocales() {
 }
 
 const posts = ref([]);
+const homePosts = ref([]);
+const homeTotal = ref(0);
+const homeHasMore = ref(false);
+const homeLoading = ref(false);
+const homeError = ref('');
+const homeTags = ref([]);
+const homeMonths = ref([]);
 const admin = ref(null);
 const authorPage = ref(null);
 const members = ref([]);
@@ -89,7 +96,6 @@ const selectedPostId = ref(null);
 const searchQuery = ref('');
 const selectedTag = ref('');
 const selectedMonth = ref('');
-const postLimit = ref(9);
 const authOpen = ref(false);
 const authMode = ref('login');
 const authError = ref('');
@@ -169,24 +175,20 @@ const authoredPostCount = computed(() => posts.value.filter((post) => post.autho
 const relatedPosts = computed(() => {
 	if (!selectedPost.value) return [];
 	const tags = new Set(selectedPost.value.tags || []);
-	return posts.value.filter((post) => post.id !== selectedPost.value.id && isPublicEntry(post) && (post.tags || []).some((tag) => tags.has(tag))).slice(0, 3);
+	return [...posts.value, ...homePosts.value].filter((post, index, list) => list.findIndex((item) => item.id === post.id) === index && post.id !== selectedPost.value.id && isPublicEntry(post) && (post.tags || []).some((tag) => tags.has(tag))).slice(0, 3);
 });
-const allTags = computed(() => [...new Set(posts.value.filter((post) => admin.value || post.visibility === 'public').flatMap((post) => post.tags || []))]);
-const matchingPosts = computed(() => {
-	const query = searchQuery.value.trim().toLowerCase();
-	const month = selectedMonth.value;
-	return posts.value.filter((post) => {
-		if (!admin.value && (post.visibility !== 'public' || (post.status || 'published') !== 'published')) return false;
-		const matchesText = !query || [post.title, post.content, ...(post.tags || [])].join(' ').toLowerCase().includes(query);
-		const matchesTag = !selectedTag.value || (post.tags || []).includes(selectedTag.value);
-		const matchesMonth = !month || String(post.date || '').slice(0, 7) === month;
-		return matchesText && matchesTag && matchesMonth;
-	});
-});
-const visiblePosts = computed(() => matchingPosts.value.slice(0, postLimit.value));
-const archiveMonths = computed(() => [...new Set(posts.value.filter((post) => admin.value || (post.visibility === 'public' && (post.status || 'published') === 'published')).map((post) => String(post.date || '').slice(0, 7)).filter(Boolean))].sort().reverse());
+const allTags = computed(() => [...new Set([...homeTags.value, ...posts.value.filter((post) => admin.value || post.visibility === 'public').flatMap((post) => post.tags || [])])]);
+const matchingPosts = computed(() => homePosts.value);
+const visiblePosts = computed(() => homePosts.value);
+const archiveMonths = computed(() => homeMonths.value);
+let homeSearchTimer;
+let homeRequestId = 0;
 
-watch([searchQuery, selectedTag, selectedMonth], () => { postLimit.value = 9; });
+watch([searchQuery, selectedTag, selectedMonth], ([query, tag, month], [previousQuery, previousTag, previousMonth]) => {
+	clearTimeout(homeSearchTimer);
+	const delay = query !== previousQuery && tag === previousTag && month === previousMonth ? 250 : 0;
+	homeSearchTimer = setTimeout(() => loadHomePosts(true), delay);
+});
 
 watch(draft, () => {
 	if (view.value !== 'editor' || !admin.value) return;
@@ -261,6 +263,40 @@ async function loadPosts() {
 	catch { posts.value = []; }
 }
 
+async function loadHomePosts(reset = false) {
+	if (homeLoading.value && !reset) return;
+	const requestId = ++homeRequestId;
+	const offset = reset ? 0 : homePosts.value.length;
+	if (reset) {
+		homePosts.value = [];
+		homeHasMore.value = false;
+	}
+	homeLoading.value = true;
+	homeError.value = '';
+	const params = new URLSearchParams({ limit: '9', offset: String(offset) });
+	if (searchQuery.value.trim()) params.set('search', searchQuery.value.trim());
+	if (selectedTag.value) params.set('tag', selectedTag.value);
+	if (selectedMonth.value) params.set('month', selectedMonth.value);
+	try {
+		const result = await api(`/home?${params}`);
+		if (requestId !== homeRequestId) return;
+		homePosts.value = reset ? result.posts : [...homePosts.value, ...result.posts];
+		homeTotal.value = result.total;
+		homeHasMore.value = result.hasMore;
+		homeTags.value = result.tags;
+		homeMonths.value = result.months;
+	} catch (error) {
+		if (requestId === homeRequestId) homeError.value = error.message;
+	} finally {
+		if (requestId === homeRequestId) homeLoading.value = false;
+	}
+}
+
+function loadMoreHomePosts() {
+	if (homeError.value) return loadHomePosts(true);
+	if (homeHasMore.value && !homeLoading.value) loadHomePosts();
+}
+
 async function loadComments(postId) {
 	try { comments.value = await api(`/posts/${postId}/comments`); }
 	catch { comments.value = []; }
@@ -315,7 +351,7 @@ async function deleteProfile() {
 		clearToken();
 		admin.value = null;
 		view.value = 'home';
-		await loadPosts();
+		await Promise.all([loadPosts(), loadHomePosts(true)]);
 		window.scrollTo({ top: 0 });
 	} catch (error) {
 		window.alert(error.message);
@@ -366,7 +402,7 @@ async function deleteMember(member) {
 			clearToken();
 			admin.value = null;
 			view.value = 'home';
-			await loadPosts();
+			await Promise.all([loadPosts(), loadHomePosts(true)]);
 			window.scrollTo({ top: 0 });
 		} else {
 			await loadMembers();
@@ -379,7 +415,7 @@ async function deleteMember(member) {
 async function toggleFeatured(post) {
 	try {
 		await api(`/posts/${post.id}/featured`, { method: 'PATCH', body: JSON.stringify({ featured: !post.featured }) });
-		await loadPosts();
+		await Promise.all([loadPosts(), loadHomePosts(true)]);
 	} catch (error) {
 		window.alert(error.message);
 	}
@@ -403,11 +439,9 @@ async function openAuthor(authorId, updateHistory = true) {
 }
 
 async function refreshContent() {
-	const postsLoading = loadPosts();
-	await Promise.all([loadSite(), loadLocales()]);
+	await Promise.all([loadSite(), loadLocales(), loadHomePosts(true)]);
 	setPageMeta(site.value.blogName, site.value.tagline);
 	siteReady.value = true;
-	await postsLoading;
 }
 
 onMounted(async () => {
@@ -420,7 +454,6 @@ onMounted(async () => {
 			clearToken();
 		}
 	}
-	await loadPosts();
 	window.addEventListener('popstate', syncLocation);
 	syncLocation();
 });
@@ -455,7 +488,7 @@ async function submitAuth() {
 		admin.value = result.user;
 		authOpen.value = false;
 		authDraft.password = '';
-		await loadPosts();
+		await Promise.all([loadPosts(), loadHomePosts(true)]);
 	} catch (error) {
 		authError.value = error.message;
 		showErrorNotification(error.message);
@@ -469,7 +502,7 @@ async function logout() {
 	clearToken();
 	view.value = 'home';
 	admin.value = null;
-	await loadPosts();
+	await Promise.all([loadPosts(), loadHomePosts(true)]);
 }
 
 function openEditor(post = null) {
@@ -479,6 +512,7 @@ function openEditor(post = null) {
 	const initialDraft = post ? {
 		title: post.title,
 		coverImage: post.coverImage,
+		coverThumbnail: post.coverThumbnail || '',
 		tags: (post.tags || []).join(', '),
 		content: post.content,
 		visibility: post.visibility || 'public',
@@ -486,7 +520,7 @@ function openEditor(post = null) {
 		scheduledAt: toLocalDateTime(post.scheduledAt),
 		seoTitle: post.seoTitle || '',
 		seoDescription: post.seoDescription || ''
-	} : { title: '', coverImage: '', tags: '', content: '', visibility: 'public', status: 'published', scheduledAt: '', seoTitle: '', seoDescription: '' };
+	} : { title: '', coverImage: '', coverThumbnail: '', tags: '', content: '', visibility: 'public', status: 'published', scheduledAt: '', seoTitle: '', seoDescription: '' };
 	const storageKey = `seohakru_autosave_${editingId.value || 'new'}`;
 	let restored = false;
 	try {
@@ -533,7 +567,7 @@ async function savePost(statusOverride = null) {
 		clearTimeout(autosaveTimer);
 		localStorage.removeItem(`seohakru_autosave_${editingId.value || 'new'}`);
 		autosaveStatus.value = '';
-		await loadPosts();
+		await Promise.all([loadPosts(), loadHomePosts(true)]);
 		readPost(post);
 	} catch (error) {
 		editorError.value = error.message;
@@ -550,6 +584,7 @@ async function restoreRevision(revision) {
 		Object.assign(draft, {
 			title: post.title,
 			coverImage: post.coverImage,
+			coverThumbnail: post.coverThumbnail || '',
 			tags: (post.tags || []).join(', '),
 			content: post.content,
 			visibility: post.visibility,
@@ -617,7 +652,7 @@ async function deletePost() {
 		await api(`/posts/${editingId.value}`, { method: 'DELETE' });
 		selectedPostId.value = null;
 		view.value = 'home';
-		await loadPosts();
+		await Promise.all([loadPosts(), loadHomePosts(true)]);
 	} catch (error) {
 		editorError.value = error.message;
 	} finally {
@@ -641,6 +676,7 @@ async function uploadCover(event) {
 	try {
 		const result = await api('/uploads', { method: 'POST', body: form, signal: controller.signal });
 		draft.coverImage = result.url;
+		draft.coverThumbnail = result.thumbnailUrl || result.url;
 	} catch (error) {
 		editorError.value = error.name === 'AbortError' ? currentLocale.value.mdx['uploadImage.uploadError'] : error.message;
 	} finally {
@@ -671,7 +707,18 @@ async function saveSettings() {
 	}
 }
 
-function readPost(post, updateHistory = true) {
+async function readPost(post, updateHistory = true) {
+	if (!Object.hasOwn(post, 'content')) {
+		try {
+			post = await api(`/posts/${post.id}`);
+			const existingIndex = posts.value.findIndex((item) => item.id === post.id);
+			if (existingIndex < 0) posts.value.push(post);
+			else posts.value[existingIndex] = post;
+		} catch (error) {
+			showErrorNotification(error.message);
+			return;
+		}
+	}
 	selectedPostId.value = post.id;
 	view.value = 'entry';
 	if (updateHistory) {
@@ -687,11 +734,18 @@ function readPost(post, updateHistory = true) {
 	window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function syncLocation() {
+async function syncLocation() {
 	if (view.value === 'editor') return;
 	const search = new URLSearchParams(window.location.search);
 	const postId = search.get('post');
-	const post = postId && posts.value.find((item) => item.id === postId);
+	let post = postId && posts.value.find((item) => item.id === postId);
+	if (postId && !post) {
+		try {
+			post = await api(`/posts/${postId}`);
+		} catch {
+			post = null;
+		}
+	}
 	if (post) readPost(post, false);
 	else if (search.get('author')) openAuthor(search.get('author'), false);
 	else {
@@ -710,7 +764,7 @@ function goHome() {
 	selectedPostId.value = null;
 	selectedTag.value = '';
 	selectedMonth.value = '';
-	postLimit.value = 9;
+	loadHomePosts(true);
 	const url = new URL(window.location.href);
 	url.searchParams.delete('post');
 	url.searchParams.delete('author');
@@ -731,13 +785,13 @@ function formatMonth(value) {
 
 const app = reactive({
 	site, currentLocale, language, availableLanguages, theme, themeToggleLabel, admin, isAdmin, authoredPostCount,
-	view, posts, authorPage, members, analytics, selectedPost, relatedPosts, allTags, matchingPosts, visiblePosts, archiveMonths,
-	searchQuery, selectedTag, selectedMonth, postLimit, selectedPostId, comments, commentNotice, commentDraft, shareStatus,
+	view, posts, homePosts, homeTotal, homeHasMore, homeLoading, homeError, authorPage, members, analytics, selectedPost, relatedPosts, allTags, matchingPosts, visiblePosts, archiveMonths,
+	searchQuery, selectedTag, selectedMonth, selectedPostId, comments, commentNotice, commentDraft, shareStatus,
 	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
 	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
 	aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
-	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth,
+	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth, loadMoreHomePosts,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
 	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
 	deleteComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,

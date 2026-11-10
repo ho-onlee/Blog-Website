@@ -5,6 +5,7 @@ Blog-Website is a personal publishing site with author accounts, public and priv
 ## Features
 
 - Responsive editorial-style post list and reader
+- Homepage cards load as you scroll and use generated WebP cover thumbnails
 - English and Korean interface; the initial language follows the browser's first preferred language
 - Author profiles, admin/member management, and post scheduling
 - MDX writing, revisions, cover images, SEO fields, comments, RSS, and sitemap

@@ -4,6 +4,7 @@ const path = require('node:path');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+const sharp = require('sharp');
 const ai = require('./ai');
 const { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, removeSessionsForAccount, allowComment, recordView, getAnalytics } = require('./database');
 
@@ -234,6 +235,7 @@ function normalizePost(input, previous, account) {
 		id: previous?.id || crypto.randomUUID(),
 		title: String(data.title || '').trim().slice(0, 180),
 		coverImage: String(data.coverImage || '').trim().slice(0, 1200),
+		coverThumbnail: String(data.coverThumbnail || '').trim().slice(0, 1200),
 		tags,
 		content: String(data.content || '').slice(0, 100000),
 		visibility: data.visibility === 'private' ? 'private' : 'public',
@@ -287,6 +289,7 @@ function createRevision(post) {
 		title: post.title,
 		content: post.content,
 		coverImage: post.coverImage || '',
+		coverThumbnail: post.coverThumbnail || '',
 		tags: post.tags || [],
 		visibility: post.visibility,
 		status: post.status || 'published',
@@ -624,6 +627,104 @@ app.get('/api/posts', async (request, response, next) => {
 	}
 });
 
+const cardThumbnails = new Map();
+
+async function getCardThumbnail(post) {
+	if (post.coverThumbnail && post.coverThumbnail !== post.coverImage) return post.coverThumbnail;
+	if (!post.coverImage) return '';
+	let coverUrl;
+	try { coverUrl = new URL(post.coverImage, 'http://localhost'); } catch { return post.coverImage; }
+	if (coverUrl.hostname === 'images.unsplash.com') {
+		coverUrl.searchParams.set('w', '640');
+		coverUrl.searchParams.set('q', '72');
+		return coverUrl.href;
+	}
+	const pathname = coverUrl.pathname;
+	if (!pathname.startsWith('/uploads/')) return post.coverImage;
+	const filename = path.basename(pathname);
+	if (filename !== pathname.slice('/uploads/'.length) || !imageExtensions.has(path.extname(filename).toLowerCase())) return post.coverImage;
+	const thumbnailFilename = `${path.parse(filename).name}-card.webp`;
+	const thumbnailPath = path.join(uploadsDir, thumbnailFilename);
+	try {
+		await fs.access(thumbnailPath);
+		return `/uploads/${thumbnailFilename}`;
+	} catch {}
+	if (!cardThumbnails.has(filename)) {
+		const job = sharp(path.join(uploadsDir, filename))
+			.rotate()
+			.resize({ width: 640, height: 640, fit: 'inside', withoutEnlargement: true })
+			.webp({ quality: 72, effort: 4 })
+			.toFile(thumbnailPath)
+			.then(() => `/uploads/${thumbnailFilename}`)
+			.catch((error) => {
+				console.error(`Cover thumbnail generation failed for ${filename}:`, error.message);
+				return post.coverImage;
+			})
+			.finally(() => cardThumbnails.delete(filename));
+		cardThumbnails.set(filename, job);
+	}
+	return cardThumbnails.get(filename);
+}
+
+app.get('/api/home', async (request, response, next) => {
+	try {
+		const posts = await loadPosts();
+		const account = await findSession(request);
+		const visible = account?.role === 'admin'
+			? posts
+			: posts.filter((post) => isPublicPost(post) || (account?.role === 'author' && post.authorId === account.id));
+		const tags = [...new Set(visible.flatMap((post) => post.tags || []))].sort((left, right) => left.localeCompare(right));
+		const months = [...new Set(visible.map((post) => String(post.date || '').slice(0, 7)).filter(Boolean))].sort().reverse();
+		const query = String(request.query.search || '').trim().toLowerCase();
+		const tag = String(request.query.tag || '');
+		const month = String(request.query.month || '');
+		const matching = visible.filter((post) => {
+			const matchesQuery = !query || [post.title, post.content, ...(post.tags || [])].join(' ').toLowerCase().includes(query);
+			return matchesQuery && (!tag || (post.tags || []).includes(tag)) && (!month || String(post.date || '').startsWith(month));
+		});
+		matching.sort((left, right) => Number(Boolean(right.featured)) - Number(Boolean(left.featured)) || right.date.localeCompare(left.date));
+		const limit = Math.min(24, Math.max(1, Number.parseInt(request.query.limit, 10) || 9));
+		const offset = Math.max(0, Number.parseInt(request.query.offset, 10) || 0);
+		const page = matching.slice(offset, offset + limit);
+		const cards = await Promise.all(page.map(async (post) => {
+			const content = String(post.content || '');
+			const summary = content.replace(/```[\s\S]*?```/g, '').replace(/<img\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi, '[image]').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_~`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 130);
+			return {
+				id: post.id,
+				title: post.title,
+				date: post.date,
+				authorName: post.authorName,
+				authorId: post.authorId,
+				tags: post.tags || [],
+				visibility: post.visibility,
+				status: post.status,
+				featured: post.featured,
+				coverImage: post.coverImage || '',
+				coverThumbnail: await getCardThumbnail(post),
+				contentSummary: summary,
+				readingMinutes: Math.max(1, Math.ceil(content.replace(/```[\s\S]*?```/g, '').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#>*_~`-]/g, '').replace(/\s+/g, ' ').trim().length / 500))
+			};
+		}));
+		response.json({ posts: cards, total: matching.length, tags, months, hasMore: offset + cards.length < matching.length });
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.get('/api/posts/:id', async (request, response, next) => {
+	try {
+		const post = (await loadPosts()).find((item) => item.id === request.params.id);
+		if (!post) return response.status(404).json({ error: '글을 찾을 수 없습니다.' });
+		const account = await findSession(request);
+		if (!isPublicPost(post) && account?.role !== 'admin' && !(account?.role === 'author' && post.authorId === account.id)) {
+			return response.status(404).json({ error: '글을 찾을 수 없습니다.' });
+		}
+		response.json(post);
+	} catch (error) {
+		next(error);
+	}
+});
+
 app.patch('/api/posts/:id/featured', requireAdmin, async (request, response, next) => {
 	try {
 		const posts = await loadPosts();
@@ -683,7 +784,7 @@ app.put('/api/posts/:id', requirePostOwner, async (request, response, next) => {
 		if (index < 0) return response.status(404).json({ error: '글을 찾을 수 없습니다.' });
 		const post = normalizePost(request.body, posts[index], request.account);
 		if (!post.title) return response.status(400).json({ error: '글 제목을 입력해 주세요.' });
-		const revisionKeys = ['title', 'content', 'coverImage', 'tags', 'visibility', 'status', 'scheduledAt', 'seoTitle', 'seoDescription'];
+		const revisionKeys = ['title', 'content', 'coverImage', 'coverThumbnail', 'tags', 'visibility', 'status', 'scheduledAt', 'seoTitle', 'seoDescription'];
 		if (revisionKeys.some((key) => JSON.stringify(posts[index][key] ?? null) !== JSON.stringify(post[key] ?? null))) {
 			const revisions = await readJson(revisionsFile, []);
 			revisions.unshift(createRevision(posts[index]));
@@ -964,6 +1065,7 @@ const imageTypes = new Map([
 	['image/webp', '.webp'],
 	['image/gif', '.gif']
 ]);
+const imageExtensions = new Set(imageTypes.values());
 const upload = multer({
 	storage: multer.diskStorage({
 		destination: uploadsDir,
@@ -977,7 +1079,13 @@ app.post('/api/uploads', requireWriter, (request, response) => {
 	upload.single('image')(request, response, (error) => {
 		if (error) return response.status(400).json({ error: '이미지를 업로드할 수 없습니다.' });
 		if (!request.file) return response.status(400).json({ error: 'JPEG, PNG, WebP 또는 GIF 이미지를 선택해 주세요.' });
-		response.status(201).json({ url: `/uploads/${request.file.filename}` });
+		const thumbnailFilename = `${path.parse(request.file.filename).name}-card.webp`;
+		sharp(request.file.path).rotate().resize({ width: 640, height: 640, fit: 'inside', withoutEnlargement: true }).webp({ quality: 72, effort: 4 }).toFile(path.join(uploadsDir, thumbnailFilename))
+			.then(() => response.status(201).json({ url: `/uploads/${request.file.filename}`, thumbnailUrl: `/uploads/${thumbnailFilename}` }))
+			.catch((thumbnailError) => {
+				console.error('Cover thumbnail generation failed:', thumbnailError.message);
+				response.status(201).json({ url: `/uploads/${request.file.filename}`, thumbnailUrl: `/uploads/${request.file.filename}` });
+			});
 	});
 });
 
