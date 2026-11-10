@@ -23,7 +23,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-haiku-latest}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.0-flash}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-120000}
       AI_MAX_INPUT_CHARS: ${AI_MAX_INPUT_CHARS:-20000}
       TRUST_PROXY: ${TRUST_PROXY:-loopback,linklocal,uniquelocal}

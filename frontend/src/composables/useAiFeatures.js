@@ -21,11 +21,13 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	let aiRequestId = 0;
 	let metadataRequestId = 0;
 	let statusRequestId = 0;
+	let statusTimer;
 	let suggestionAction = '';
 	let suggestionSource = '';
 
 	watch(() => [aiConfig.provider, aiConfig.model], () => {
 		statusRequestId += 1;
+		clearTimeout(statusTimer);
 		aiStatus.value = { state: 'unchecked', available: false };
 		aiSettingsError.value = '';
 	}, { flush: 'sync' });
@@ -45,14 +47,22 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 		if (provider?.defaultModel) aiConfig.model = provider.defaultModel;
 	}
 
-	async function checkAiStatus() {
+	async function checkAiStatus(retryModelDownload = true) {
+		clearTimeout(statusTimer);
 		const requestId = ++statusRequestId;
 		aiStatus.value = { state: 'checking', available: false };
 		aiSettingsError.value = '';
 		try {
-			const params = new URLSearchParams({ provider: aiConfig.provider, model: aiConfig.model });
+			const params = new URLSearchParams({ provider: aiConfig.provider, model: aiConfig.model, retry: retryModelDownload ? '1' : '0' });
 			const status = await api(`/ai/status?${params}`);
-			if (requestId === statusRequestId) aiStatus.value = status;
+			if (requestId === statusRequestId) {
+				aiStatus.value = status;
+				if (status.state === 'model_downloading') {
+					statusTimer = setTimeout(() => {
+						if (requestId === statusRequestId) checkAiStatus(false);
+					}, 3000);
+				}
+			}
 		} catch (error) {
 			if (requestId === statusRequestId) {
 				aiStatus.value = { state: 'unavailable', available: false };

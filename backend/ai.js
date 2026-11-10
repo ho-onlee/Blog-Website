@@ -9,8 +9,10 @@ const defaultModels = {
 	ollama: 'qwen2.5:3b',
 	openai: 'gpt-4o-mini',
 	anthropic: 'claude-3-5-haiku-latest',
-	gemini: 'gemini-2.0-flash'
+	gemini: 'gemini-2.5-flash'
 };
+const ollamaPulls = new Map();
+const ollamaPullFailures = new Map();
 
 function getProvider(providerId) {
 	return providerDefinitions.find((provider) => provider.id === providerId);
@@ -101,7 +103,24 @@ function modelIsListed(providerId, payload, model) {
 	return payload.supportedGenerationMethods.includes('generateContent');
 }
 
-async function checkAvailability(settings) {
+function startOllamaPull(model) {
+	if (ollamaPulls.has(model)) return;
+	ollamaPullFailures.delete(model);
+	const pull = requestJson(`${ollamaBaseUrl()}/api/pull`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ model, stream: false }),
+		timeoutMs: 30 * 60 * 1000
+	}).then((payload) => {
+		if (payload.error) throw new Error(payload.error);
+	}).catch((error) => {
+		console.error(`Ollama model download failed for ${model}: ${error.message}`);
+		ollamaPullFailures.set(model, true);
+	}).finally(() => ollamaPulls.delete(model));
+	ollamaPulls.set(model, pull);
+}
+
+async function checkAvailability(settings, options = {}) {
 	const provider = getProvider(settings.provider);
 	if (provider.envKey && !process.env[provider.envKey]) {
 		return { available: false, state: 'not_configured' };
@@ -110,9 +129,14 @@ async function checkAvailability(settings) {
 		const payload = await requestJson(providerModelUrl(settings.provider, settings.model), { headers: providerHeaders(settings.provider) });
 		if (settings.provider === 'gemini' && (typeof payload.name !== 'string' || !Array.isArray(payload.supportedGenerationMethods))) throw new Error('Invalid model response.');
 		if (!modelIsListed(settings.provider, payload, settings.model)) {
+			if (settings.provider === 'ollama') {
+				if (ollamaPullFailures.has(settings.model) && !options.retryModelDownload) return { available: false, state: 'model_download_failed' };
+				startOllamaPull(settings.model);
+				return { available: false, state: 'model_downloading' };
+			}
 			return { available: false, state: settings.provider === 'gemini' ? 'model_unsupported' : 'model_missing' };
 		}
-		return { available: true, state: 'ready' };
+		return { available: !ollamaPulls.has(settings.model), state: ollamaPulls.has(settings.model) ? 'model_downloading' : 'ready' };
 	} catch (error) {
 		return { available: false, state: settings.provider === 'gemini' && error.status === 404 ? 'model_missing' : 'unavailable' };
 	}

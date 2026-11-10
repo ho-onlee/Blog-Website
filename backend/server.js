@@ -509,7 +509,7 @@ app.get('/api/ai/status', requireAdmin, async (request, response, next) => {
 		} else {
 			settings = ai.getSettings(await readJson(siteFile, {}));
 		}
-		response.json({ ...settings, ...(await ai.checkAvailability(settings)) });
+		response.json({ ...settings, ...(await ai.checkAvailability(settings, { retryModelDownload: request.query.retry === '1' })) });
 	} catch (error) {
 		next(error);
 	}

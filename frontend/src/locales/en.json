@@ -344,6 +344,8 @@
       "not_configured": "API key not configured",
       "model_missing": "Model not found",
       "model_unsupported": "Model does not support text generation",
+      "model_downloading": "Downloading model…",
+      "model_download_failed": "Model download failed. Check the model name or server logs, then retry.",
       "unavailable": "Provider unavailable",
       "unchecked": "Not checked",
       "checking": "Checking…"

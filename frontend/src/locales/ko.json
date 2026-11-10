@@ -344,6 +344,8 @@
       "not_configured": "API 키가 설정되지 않았습니다",
       "model_missing": "모델을 찾을 수 없습니다",
       "model_unsupported": "텍스트 생성을 지원하지 않는 모델입니다",
+      "model_downloading": "모델을 다운로드하고 있습니다…",
+      "model_download_failed": "모델 다운로드에 실패했습니다. 모델 이름이나 서버 로그를 확인한 뒤 다시 시도하세요.",
       "unavailable": "제공자에 연결할 수 없습니다",
       "unchecked": "확인 전",
       "checking": "확인 중…"
