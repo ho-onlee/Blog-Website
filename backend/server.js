@@ -494,7 +494,21 @@ app.put('/api/ai/settings', requireAdmin, async (request, response, next) => {
 
 app.get('/api/ai/status', requireAdmin, async (request, response, next) => {
 	try {
-		const settings = ai.getSettings(await readJson(siteFile, {}));
+		let settings;
+		if (request.query.provider !== undefined || request.query.model !== undefined) {
+			const { provider, model } = request.query;
+			const option = ai.getProviderOptions().find((item) => item.id === provider);
+			if (!option) return response.status(400).json({ error: 'Unsupported AI provider.' });
+			if (!option.configured) return response.json({ provider, model, available: false, state: 'not_configured' });
+			try {
+				ai.validateSettings(provider, model);
+			} catch (error) {
+				return response.status(400).json({ error: error.message });
+			}
+			settings = { provider, model };
+		} else {
+			settings = ai.getSettings(await readJson(siteFile, {}));
+		}
 		response.json({ ...settings, ...(await ai.checkAvailability(settings)) });
 	} catch (error) {
 		next(error);

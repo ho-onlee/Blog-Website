@@ -342,8 +342,10 @@
     "status": {
       "ready": "Ready",
       "not_configured": "API key not configured",
-      "model_missing": "Model is not downloaded",
+      "model_missing": "Model not found",
+      "model_unsupported": "Model does not support text generation",
       "unavailable": "Provider unavailable",
+      "unchecked": "Not checked",
       "checking": "Checking…"
     },
     "editorHeading": "Writing assistant",

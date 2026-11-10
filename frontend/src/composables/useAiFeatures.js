@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue';
+import { reactive, ref, watch } from 'vue';
 import { api } from '../storage.js';
 
 export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
@@ -20,8 +20,15 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	const archiveBusy = ref(false);
 	let aiRequestId = 0;
 	let metadataRequestId = 0;
+	let statusRequestId = 0;
 	let suggestionAction = '';
 	let suggestionSource = '';
+
+	watch(() => [aiConfig.provider, aiConfig.model], () => {
+		statusRequestId += 1;
+		aiStatus.value = { state: 'unchecked', available: false };
+		aiSettingsError.value = '';
+	}, { flush: 'sync' });
 
 	async function loadAiSettings() {
 		try {
@@ -39,12 +46,18 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	}
 
 	async function checkAiStatus() {
+		const requestId = ++statusRequestId;
 		aiStatus.value = { state: 'checking', available: false };
+		aiSettingsError.value = '';
 		try {
-			aiStatus.value = await api('/ai/status');
+			const params = new URLSearchParams({ provider: aiConfig.provider, model: aiConfig.model });
+			const status = await api(`/ai/status?${params}`);
+			if (requestId === statusRequestId) aiStatus.value = status;
 		} catch (error) {
-			aiStatus.value = { state: 'unavailable', available: false };
-			aiSettingsError.value = error.message;
+			if (requestId === statusRequestId) {
+				aiStatus.value = { state: 'unavailable', available: false };
+				aiSettingsError.value = error.message;
+			}
 		}
 	}
 

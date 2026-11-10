@@ -57,10 +57,10 @@ function providerKey(providerId) {
 	return process.env[getProvider(providerId)?.envKey] || '';
 }
 
-function providerModelUrl(providerId) {
+function providerModelUrl(providerId, model) {
 	if (providerId === 'openai') return `${(process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '')}/models`;
 	if (providerId === 'anthropic') return 'https://api.anthropic.com/v1/models';
-	if (providerId === 'gemini') return 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=100';
+	if (providerId === 'gemini') return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.replace(/^models\//, ''))}`;
 	return `${ollamaBaseUrl()}/api/tags`;
 }
 
@@ -83,15 +83,22 @@ async function requestJson(url, options = {}) {
 		throw new Error('The AI provider could not be reached.');
 	}
 	const payload = await response.json().catch(() => ({}));
-	if (!response.ok) throw new Error(`The AI provider returned HTTP ${response.status}.`);
+	if (!response.ok) {
+		const error = new Error(`The AI provider returned HTTP ${response.status}.`);
+		error.status = response.status;
+		throw error;
+	}
 	return payload;
 }
 
 function modelIsListed(providerId, payload, model) {
-	if (providerId === 'ollama') return (payload.models || []).some((item) => item.name === model || item.model === model);
+	if (providerId === 'ollama') {
+		const normalize = (name) => typeof name === 'string' && name.lastIndexOf(':') <= name.lastIndexOf('/') ? `${name}:latest` : name;
+		return (payload.models || []).some((item) => normalize(item.name) === normalize(model) || normalize(item.model) === normalize(model));
+	}
 	if (providerId === 'openai') return (payload.data || []).some((item) => item.id === model);
 	if (providerId === 'anthropic') return (payload.data || []).some((item) => item.id === model);
-	return (payload.models || []).some((item) => item.name === `models/${model}` || item.name === model);
+	return payload.supportedGenerationMethods.includes('generateContent');
 }
 
 async function checkAvailability(settings) {
@@ -100,13 +107,14 @@ async function checkAvailability(settings) {
 		return { available: false, state: 'not_configured' };
 	}
 	try {
-		const payload = await requestJson(providerModelUrl(settings.provider), { headers: providerHeaders(settings.provider) });
+		const payload = await requestJson(providerModelUrl(settings.provider, settings.model), { headers: providerHeaders(settings.provider) });
+		if (settings.provider === 'gemini' && (typeof payload.name !== 'string' || !Array.isArray(payload.supportedGenerationMethods))) throw new Error('Invalid model response.');
 		if (!modelIsListed(settings.provider, payload, settings.model)) {
-			return { available: false, state: 'model_missing' };
+			return { available: false, state: settings.provider === 'gemini' ? 'model_unsupported' : 'model_missing' };
 		}
 		return { available: true, state: 'ready' };
-	} catch {
-		return { available: false, state: 'unavailable' };
+	} catch (error) {
+		return { available: false, state: settings.provider === 'gemini' && error.status === 404 ? 'model_missing' : 'unavailable' };
 	}
 }
 
@@ -137,7 +145,7 @@ async function generateText(settings, systemPrompt, userPrompt, options = {}) {
 		url = 'https://api.anthropic.com/v1/messages';
 		body = { model, max_tokens: maxTokens, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] };
 	} else {
-		url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+		url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.replace(/^models\//, ''))}:generateContent`;
 		body = {
 			systemInstruction: { parts: [{ text: systemPrompt }] },
 			contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
