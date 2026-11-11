@@ -6,6 +6,7 @@ const cors = require('cors');
 const multer = require('multer');
 const sharp = require('sharp');
 const ai = require('./ai');
+const { firstImageUrl } = require('./post-images');
 const { initializeDatabase, readJson, writeJson, storeSession, getSessionAccountId, removeSession, removeSessionsForAccount, allowComment, recordView, getAnalytics } = require('./database');
 
 const app = express();
@@ -224,6 +225,7 @@ async function requirePostOwner(request, response, next) {
 function normalizePost(input, previous, account) {
 	const data = input && typeof input === 'object' ? input : {};
 	const now = new Date().toISOString();
+	const coverImage = String(data.coverImage || '').trim() || firstImageUrl(data.content);
 	const requestedStatus = ['draft', 'scheduled', 'published'].includes(data.status) ? data.status : 'published';
 	const scheduledTime = Date.parse(data.scheduledAt || '');
 	const scheduledAt = Number.isFinite(scheduledTime) ? new Date(scheduledTime).toISOString() : null;
@@ -234,7 +236,7 @@ function normalizePost(input, previous, account) {
 	return {
 		id: previous?.id || crypto.randomUUID(),
 		title: String(data.title || '').trim().slice(0, 180),
-		coverImage: String(data.coverImage || '').trim().slice(0, 1200),
+		coverImage: coverImage.slice(0, 1200),
 		coverThumbnail: String(data.coverThumbnail || '').trim().slice(0, 1200),
 		tags,
 		content: String(data.content || '').slice(0, 100000),
@@ -272,6 +274,7 @@ async function loadPosts() {
 		const author = accountMap.get(post.authorId);
 		return {
 			...post,
+			coverImage: String(post.coverImage || '').trim() || firstImageUrl(post.content),
 			authorName: author?.displayName || author?.username || post.authorName || defaultSite.blogName,
 			authorBio: author?.bio || ''
 		};
