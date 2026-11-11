@@ -1,11 +1,15 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
 import MdxEditor from './MdxEditor.vue';
+import EditorAiTools from './EditorAiTools.vue';
 
 const props = defineProps({ app: { type: Object, required: true } });
 const app = props.app;
 const coverInput = ref(null);
 const uploadStatus = ref(null);
+const mobileAiTrigger = ref(null);
+const mobileAiClose = ref(null);
+const aiToolsOpen = ref(false);
 const tagInput = ref('');
 const tagInputFocused = ref(false);
 watch(() => app.uploadBusy, async (uploading) => {
@@ -42,6 +46,17 @@ function handleTagInputKeydown(event) {
 	} else if (event.key === 'Backspace' && !tagInput.value && draftTags.value.length) {
 		removeDraftTag(draftTags.value[draftTags.value.length - 1]);
 	}
+}
+
+async function openAiTools() {
+	aiToolsOpen.value = true;
+	await nextTick();
+	mobileAiClose.value?.focus();
+}
+
+function closeAiTools() {
+	aiToolsOpen.value = false;
+	nextTick(() => mobileAiTrigger.value?.focus());
 }
 </script>
 
@@ -87,17 +102,9 @@ function handleTagInputKeydown(event) {
 				<div class="editor-action-group editor-action-start">
 					<button v-if="app.editingId" class="delete-button" type="button" @click="app.deletePost">{{ app.site.deleteLabel }}</button>
 					<p v-if="app.autosaveStatus" class="autosave-status" aria-live="polite">{{ app.autosaveStatus }}</p>
+					<button v-if="app.admin" ref="mobileAiTrigger" class="outline-button compact-action mobile-ai-trigger" type="button" @click="openAiTools"><span aria-hidden="true">✦</span> {{ app.currentLocale.ai.editorHeading }}</button>
 				</div>
-				<div v-if="app.admin" class="editor-ai-actions" :aria-label="app.currentLocale.ai.editorHeading">
-					<select v-model="app.aiAction" :disabled="app.aiAssistantBusy || !!app.aiSuggestion" :aria-label="app.currentLocale.ai.actionLabel"><option v-for="(label, action) in app.currentLocale.ai.actions" :key="action" :value="action">{{ label }}</option></select>
-					<select v-if="app.aiAction === 'translate'" v-model="app.aiTargetLanguage" :disabled="app.aiAssistantBusy || !!app.aiSuggestion" :aria-label="app.currentLocale.ai.targetLanguage"><option value="en">{{ app.currentLocale.ui.languageEnglishName }}</option><option value="ko">{{ app.currentLocale.ui.languageKoreanName }}</option></select>
-					<button class="ai-generate-button" type="button" :disabled="app.aiAssistantBusy" :aria-label="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" :title="app.aiAssistantBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.generate" @click="app.runAiAction"><span aria-hidden="true">✦</span></button>
-					<template v-if="app.aiSuggestion">
-						<button class="ai-suggestion-action accept" type="button" :aria-label="app.currentLocale.ai.useSuggestion" :title="app.currentLocale.ai.useSuggestion" @click="app.useAiSuggestion">✓</button>
-						<button class="ai-suggestion-action decline" type="button" :aria-label="app.currentLocale.ai.dismissSuggestion" :title="app.currentLocale.ai.dismissSuggestion" @click="app.dismissAiSuggestion">×</button>
-					</template>
-					<p v-if="app.aiAssistantError" class="form-error editor-ai-error">{{ app.aiAssistantError }}</p>
-				</div>
+				<EditorAiTools v-if="app.admin" :app="app" />
 				<div class="editor-action-group editor-action-end">
 					<button class="quiet-button" type="button" @click="app.cancelEditor">{{ app.site.cancelLabel }}</button>
 					<button class="primary-button" :disabled="app.busy">{{ app.busy ? app.site.savingLabel : app.draft.status === 'scheduled' ? app.site.scheduledLabel : app.site.saveLabel }} <span aria-hidden="true">↗</span></button>
@@ -106,6 +113,14 @@ function handleTagInputKeydown(event) {
 		</form>
 	</Teleport>
 	<Teleport to="body">
+		<div v-if="aiToolsOpen" class="overlay mobile-ai-overlay" @click.self="closeAiTools" @keydown.esc.prevent="closeAiTools">
+			<section class="dialog mobile-ai-dialog" role="dialog" aria-modal="true" aria-labelledby="writer-ai-title" tabindex="-1">
+				<header class="mobile-ai-heading"><h2 id="writer-ai-title">{{ app.currentLocale.ai.editorHeading }}</h2><button ref="mobileAiClose" class="dialog-close" type="button" :aria-label="app.currentLocale.ui.closeDialogLabel" @click="closeAiTools">×</button></header>
+				<div v-if="app.aiSuggestion" class="ai-suggestion-preview" :aria-label="app.currentLocale.ai.suggestionLabel">{{ app.aiSuggestion }}</div>
+				<EditorAiTools :app="app" @close="closeAiTools" />
+				<div class="mobile-ai-metadata"><button class="text-action" type="button" :disabled="app.aiMetadataBusy" @click="app.generateAiMetadata">{{ app.aiMetadataBusy ? app.currentLocale.ai.metadataGenerating : app.currentLocale.ai.metadataAction }}</button><p v-if="app.aiMetadataError" class="form-error" role="alert">{{ app.aiMetadataError }}</p></div>
+			</section>
+		</div>
 		<div v-if="app.uploadBusy" ref="uploadStatus" class="cover-upload-overlay" role="status" aria-live="polite" tabindex="-1"><span class="cover-upload-spinner" aria-hidden="true"></span><span>{{ app.site.uploadingLabel }}</span></div>
 	</Teleport>
 </template>

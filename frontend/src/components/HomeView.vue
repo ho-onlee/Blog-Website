@@ -4,12 +4,26 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 const props = defineProps({ app: { type: Object, required: true } });
 const app = props.app;
 const loadMoreSentinel = ref(null);
+const archiveAiOpen = ref(false);
+const archiveAiTrigger = ref(null);
+const archiveAiClose = ref(null);
 let observer;
 
 async function observeLoadMore() {
 	await nextTick();
 	observer?.disconnect();
 	if (loadMoreSentinel.value && app.homeHasMore && !app.homeLoading && !app.homeError) observer?.observe(loadMoreSentinel.value);
+}
+
+async function openArchiveAi() {
+	archiveAiOpen.value = true;
+	await nextTick();
+	archiveAiClose.value?.focus();
+}
+
+function closeArchiveAi() {
+	archiveAiOpen.value = false;
+	nextTick(() => archiveAiTrigger.value?.focus());
 }
 
 onMounted(() => {
@@ -52,6 +66,7 @@ onBeforeUnmount(() => observer?.disconnect());
 				<button class="topic-chip" :class="{ selected: !app.selectedTag }" @click="app.selectedTag = ''">{{ app.site.allNotesLabel }}</button>
 				<button v-for="tag in app.allTags" :key="tag" class="topic-chip" :class="{ selected: app.selectedTag === tag }" @click="app.selectedTag = app.selectedTag === tag ? '' : tag">{{ tag }}</button>
 			</div>
+			<button v-if="app.site.aiArchiveEnabled" ref="archiveAiTrigger" class="outline-button compact-action mobile-ai-trigger archive-ai-trigger" type="button" @click="openArchiveAi"><span aria-hidden="true">✦</span> {{ app.currentLocale.ai.askHeading }}</button>
 			<form v-if="app.site.aiArchiveEnabled" class="archive-ai-panel" @submit.prevent="app.askPublicArchive">
 				<label>{{ app.currentLocale.ai.askHeading }}<span class="archive-ai-input"><input v-model="app.archiveQuestion" :placeholder="app.currentLocale.ai.askPlaceholder" maxlength="500" required /><button class="outline-button compact-action" :disabled="app.archiveBusy">{{ app.archiveBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.askAction }}</button></span></label>
 				<div v-if="app.archiveAnswer" class="archive-ai-answer"><strong>{{ app.currentLocale.ai.answerHeading }}</strong><p>{{ app.archiveAnswer }}</p><div v-if="app.archiveCitations.length" class="archive-ai-citations"><button v-for="citation in app.archiveCitations" :key="citation.id" type="button" class="text-action" @click="app.readPost(app.posts.find((post) => post.id === citation.id) || app.homePosts.find((post) => post.id === citation.id) || { id: citation.id })">{{ citation.title }} ↗</button></div></div>
@@ -77,5 +92,16 @@ onBeforeUnmount(() => observer?.disconnect());
 			<p v-if="app.homePosts.length && app.homeError" class="home-load-error" role="alert">{{ app.site.loadErrorLabel }} <button class="text-action" @click="app.loadMoreHomePosts">{{ app.site.loadMoreLabel }}</button></p>
 			<div v-if="app.homeHasMore && !app.homeError" ref="loadMoreSentinel" class="home-load-sentinel" :aria-busy="app.homeLoading" role="status"><span v-if="app.homeLoading" class="home-load-spinner" aria-hidden="true"></span><span class="visually-hidden">{{ app.site.waitingLabel }}</span></div>
 		</section>
+		<Teleport to="body">
+			<div v-if="archiveAiOpen" class="overlay mobile-ai-overlay" @click.self="closeArchiveAi" @keydown.esc.prevent="closeArchiveAi">
+				<section class="dialog mobile-ai-dialog archive-ai-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-ai-title" tabindex="-1">
+					<header class="mobile-ai-heading"><h2 id="archive-ai-title">{{ app.currentLocale.ai.askHeading }}</h2><button ref="archiveAiClose" class="dialog-close" type="button" :aria-label="app.currentLocale.ui.closeDialogLabel" @click="closeArchiveAi">×</button></header>
+					<form class="archive-ai-panel" @submit.prevent="app.askPublicArchive">
+						<label>{{ app.currentLocale.ai.askHeading }}<span class="archive-ai-input"><input v-model="app.archiveQuestion" :placeholder="app.currentLocale.ai.askPlaceholder" maxlength="500" required /><button class="outline-button compact-action" :disabled="app.archiveBusy">{{ app.archiveBusy ? app.currentLocale.ai.generating : app.currentLocale.ai.askAction }}</button></span></label>
+						<div v-if="app.archiveAnswer" class="archive-ai-answer"><strong>{{ app.currentLocale.ai.answerHeading }}</strong><p>{{ app.archiveAnswer }}</p><div v-if="app.archiveCitations.length" class="archive-ai-citations"><button v-for="citation in app.archiveCitations" :key="citation.id" type="button" class="text-action" @click="app.readPost(app.posts.find((post) => post.id === citation.id) || app.homePosts.find((post) => post.id === citation.id) || { id: citation.id })">{{ citation.title }} ↗</button></div></div>
+					</form>
+				</section>
+			</div>
+		</Teleport>
 	</section>
 </template>
