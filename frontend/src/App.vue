@@ -777,6 +777,13 @@ function formatDate(value) {
 	return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${value}T12:00:00`));
 }
 
+function formatDateTime(value) {
+	if (!value) return '';
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);
+	const locale = Intl.DateTimeFormat.supportedLocalesOf([language.value])[0] || 'en-US';
+	return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit', timeZoneName: 'short' }).format(new Date(value));
+}
+
 function formatMonth(value) {
 	const [year, month] = value.split('-').map(Number);
 	const locale = Intl.DateTimeFormat.supportedLocalesOf([language.value])[0] || 'en-US';
@@ -792,7 +799,7 @@ const app = reactive({
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
 	aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth, loadMoreHomePosts,
-	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
+	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatDateTime, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
 	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
 	deleteComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
 	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, isPublicEntry

@@ -696,6 +696,7 @@ app.get('/api/home', async (request, response, next) => {
 				id: post.id,
 				title: post.title,
 				date: post.date,
+				publishedAt: post.publishedAt || null,
 				authorName: post.authorName,
 				authorId: post.authorId,
 				tags: post.tags || [],
