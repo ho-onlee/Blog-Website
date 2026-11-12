@@ -24,6 +24,34 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 	let statusTimer;
 	let suggestionAction = '';
 	let suggestionSource = '';
+	const fixedAiErrors = {
+		'Unsupported AI provider.': 'unsupportedProvider',
+		'Enter a valid model name.': 'invalidModel',
+		'The AI provider could not be reached.': 'providerUnavailable',
+		'Invalid model response.': 'invalidModelResponse',
+		'The AI provider returned an empty response.': 'emptyResponse',
+		'The AI response was not valid JSON.': 'invalidJsonResponse',
+		'AI request limit reached. Try again later.': 'requestLimit',
+		'Choose a supported writing action.': 'unsupportedAction',
+		'Add a title or draft before requesting help.': 'addTitleOrDraft',
+		'Add a draft before generating metadata.': 'addDraftMetadata',
+		'Add a draft before translating.': 'addDraftTranslation',
+		'Archive questions are not enabled.': 'archiveDisabled',
+		'Enter a question.': 'enterQuestion',
+		'Too many questions. Try again later.': 'archiveRateLimit'
+	};
+
+	function translateAiError(error) {
+		const message = String(error?.message || '');
+		const errors = currentLocale.value.ai.errors;
+		const fixedKey = fixedAiErrors[message];
+		if (fixedKey) return errors[fixedKey];
+		const configuration = message.match(/^Configure (.+) in the server environment before selecting this provider\.$/);
+		if (configuration) return errors.configureProvider.replace('{{key}}', configuration[1]);
+		const httpStatus = message.match(/^The AI provider returned HTTP (\d+)\.$/);
+		if (httpStatus) return errors.providerHttp.replace('{{status}}', httpStatus[1]);
+		return errors.generic;
+	}
 
 	watch(() => [aiConfig.provider, aiConfig.model], () => {
 		statusRequestId += 1;
@@ -38,7 +66,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 			Object.assign(aiConfig, settings);
 			await checkAiStatus();
 		} catch (error) {
-			aiSettingsError.value = error.message;
+			aiSettingsError.value = translateAiError(error);
 		}
 	}
 
@@ -66,7 +94,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 		} catch (error) {
 			if (requestId === statusRequestId) {
 				aiStatus.value = { state: 'unavailable', available: false };
-				aiSettingsError.value = error.message;
+				aiSettingsError.value = translateAiError(error);
 			}
 		}
 	}
@@ -85,7 +113,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 			aiSettingsNotice.value = currentLocale.value.ai.settingsSaved;
 			await checkAiStatus();
 		} catch (error) {
-			aiSettingsError.value = error.message;
+			aiSettingsError.value = translateAiError(error);
 		} finally {
 			aiSettingsBusy.value = false;
 		}
@@ -108,7 +136,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 			suggestionSource = source;
 			aiSuggestion.value = result.text;
 		} catch (error) {
-			if (requestId === aiRequestId) aiAssistantError.value = error.message;
+			if (requestId === aiRequestId) aiAssistantError.value = translateAiError(error);
 		} finally {
 			if (requestId === aiRequestId) aiAssistantBusy.value = false;
 		}
@@ -151,7 +179,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 			draft.seoTitle = result.seoTitle;
 			draft.seoDescription = result.seoDescription || result.summary;
 		} catch (error) {
-			if (requestId === metadataRequestId) aiMetadataError.value = error.message;
+			if (requestId === metadataRequestId) aiMetadataError.value = translateAiError(error);
 		} finally {
 			if (requestId === metadataRequestId) aiMetadataBusy.value = false;
 		}
@@ -166,7 +194,7 @@ export function useAiFeatures({ currentLocale, language, savedSite, draft }) {
 			archiveAnswer.value = result.answer || currentLocale.value.ai.archiveNoMatch;
 			archiveCitations.value = result.citations || [];
 		} catch (error) {
-			archiveAnswer.value = error.message;
+			archiveAnswer.value = translateAiError(error);
 		} finally {
 			archiveBusy.value = false;
 		}
