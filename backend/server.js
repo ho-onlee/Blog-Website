@@ -913,6 +913,28 @@ app.put('/api/profile', requireWriter, async (request, response, next) => {
 	}
 });
 
+app.put('/api/profile/password', requireWriter, async (request, response, next) => {
+	try {
+		const { currentPassword, newPassword } = request.body || {};
+		if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || newPassword.length < 8) {
+			return response.status(400).json({ error: 'PASSWORD_TOO_SHORT' });
+		}
+		const accounts = await readJson(accountsFile, []);
+		const account = accounts.find((item) => item.id === request.account.id);
+		const { hash } = hashPassword(currentPassword, account.salt);
+		const provided = Buffer.from(hash, 'hex');
+		const stored = Buffer.from(account.hash, 'hex');
+		if (provided.length !== stored.length || !crypto.timingSafeEqual(provided, stored)) {
+			return response.status(403).json({ error: 'CURRENT_PASSWORD_INVALID' });
+		}
+		Object.assign(account, hashPassword(newPassword));
+		await writeJson(accountsFile, accounts);
+		response.status(204).end();
+	} catch (error) {
+		next(error);
+	}
+});
+
 app.delete('/api/profile', requireWriter, async (request, response, next) => {
 	try {
 		const result = await removeAccountById(request.account.id);
@@ -981,6 +1003,21 @@ app.patch('/api/members/:id', requireAdmin, async (request, response, next) => {
 		member.role = request.body.role;
 		await writeJson(accountsFile, accounts);
 		response.json(safeUser(member));
+	} catch (error) {
+		next(error);
+	}
+});
+
+app.post('/api/members/:id/password-reset', requireAdmin, async (request, response, next) => {
+	try {
+		const accounts = await readJson(accountsFile, []);
+		const member = accounts.find((account) => account.id === request.params.id);
+		if (!member) return response.status(404).json({ error: '회원을 찾을 수 없습니다.' });
+		if (member.id === request.account.id) return response.status(400).json({ error: '본인 비밀번호는 프로필에서 변경해 주세요.' });
+		Object.assign(member, hashPassword('seohakru'));
+		await writeJson(accountsFile, accounts);
+		removeSessionsForAccount(member.id);
+		response.status(204).end();
 	} catch (error) {
 		next(error);
 	}

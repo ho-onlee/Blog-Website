@@ -111,6 +111,9 @@ const commentNotice = ref('');
 const shareStatus = ref('');
 const commentDraft = reactive({ content: '', website: '' });
 const profileDraft = reactive({ displayName: '', bio: '' });
+const passwordDraft = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' });
+const passwordError = ref('');
+const passwordNotice = ref('');
 const authDraft = reactive({ username: '', password: '', inviteCode: '' });
 const siteDraft = reactive({ ...defaultSite });
 const draft = reactive({ title: '', coverImage: '', tags: '', content: '', visibility: 'public', status: 'published', scheduledAt: '', seoTitle: '', seoDescription: '' });
@@ -344,6 +347,29 @@ async function saveProfile() {
 	}
 }
 
+async function changePassword() {
+	passwordError.value = '';
+	passwordNotice.value = '';
+	if (passwordDraft.newPassword !== passwordDraft.confirmPassword) {
+		passwordError.value = currentLocale.value.site.passwordMismatchLabel;
+		return;
+	}
+	busy.value = true;
+	try {
+		await api('/profile/password', { method: 'PUT', body: JSON.stringify({ currentPassword: passwordDraft.currentPassword, newPassword: passwordDraft.newPassword }) });
+		Object.assign(passwordDraft, { currentPassword: '', newPassword: '', confirmPassword: '' });
+		passwordNotice.value = currentLocale.value.site.passwordChangedLabel;
+	} catch (error) {
+		passwordError.value = error.message === 'PASSWORD_TOO_SHORT'
+			? currentLocale.value.site.passwordTooShortLabel
+			: error.message === 'CURRENT_PASSWORD_INVALID'
+				? currentLocale.value.site.currentPasswordInvalidLabel
+				: error.message;
+	} finally {
+		busy.value = false;
+	}
+}
+
 async function deleteProfile() {
 	if (!window.confirm(site.value.deleteAccountConfirm)) return;
 	try {
@@ -388,6 +414,18 @@ async function updateMemberRole(member, role) {
 	try {
 		await api(`/members/${member.id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
 		await loadMembers();
+	} catch (error) {
+		window.alert(error.message);
+	}
+}
+
+async function resetMemberPassword(member) {
+	if (member.id === admin.value.id) return;
+	const confirmation = currentLocale.value.site.memberResetPasswordConfirm.replace('{name}', member.displayName || member.username);
+	if (!window.confirm(confirmation)) return;
+	try {
+		await api(`/members/${member.id}/password-reset`, { method: 'POST' });
+		window.alert(currentLocale.value.site.memberPasswordResetLabel);
 	} catch (error) {
 		window.alert(error.message);
 	}
@@ -794,13 +832,13 @@ const app = reactive({
 	site, currentLocale, language, availableLanguages, theme, themeToggleLabel, admin, isAdmin, authoredPostCount,
 	view, posts, homePosts, homeTotal, homeHasMore, homeLoading, homeError, authorPage, members, analytics, selectedPost, relatedPosts, allTags, matchingPosts, visiblePosts, archiveMonths,
 	searchQuery, selectedTag, selectedMonth, selectedPostId, comments, commentNotice, commentDraft, shareStatus,
-	profileDraft, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
+	profileDraft, passwordDraft, passwordError, passwordNotice, siteDraft, siteFields, localizedFieldLabels, fieldGroupHeading, busy, siteNameManagedByEnv,
 	settingsOpen, authOpen, authMode, authError, authDraft, editorError, uploadBusy, autosaveStatus, revisions, editingId, draft,
 	aiConfig, aiStatus, aiSettingsError, aiSettingsNotice, aiSettingsBusy, aiAction, aiTargetLanguage, aiSuggestion,
 	aiAssistantError, aiAssistantBusy, aiMetadataBusy, aiMetadataError, archiveQuestion, archiveAnswer, archiveCitations, archiveBusy,
 	goHome, toggleTheme, openProfile, openPostManager, openMembers, openAnalytics, openSettings, logout, openEditor, openAuth, submitAuth, loadMoreHomePosts,
 	readPost, readAuthor: openAuthor, renderMarkdown, formatDate, formatDateTime, formatMonth, readingMinutes, postSummary, canEditPost, toggleFeatured,
-	saveProfile, deleteProfile, updateMemberRole, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
+	saveProfile, changePassword, deleteProfile, updateMemberRole, resetMemberPassword, deleteMember, savePost, cancelEditor, deletePost, uploadCover, restoreRevision, sharePost, submitComment,
 	deleteComment, saveSettings, loadAiSettings, checkAiStatus, changeAiProvider, saveAiSettings, runAiAction,
 	useAiSuggestion, dismissAiSuggestion, generateAiMetadata, askPublicArchive, isPublicEntry
 });
